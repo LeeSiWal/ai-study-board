@@ -18,7 +18,8 @@ export default defineConfig({
   reporter: [["list"]],
 
   use: {
-    baseURL: `http://127.0.0.1:${WEB_PORT}`,
+    // 다른 기기에서 접속했을 때를 재현하려면 E2E_BASE_URL로 LAN 주소를 준다.
+    baseURL: process.env.E2E_BASE_URL ?? `http://127.0.0.1:${WEB_PORT}`,
     trace: "retain-on-failure",
   },
 

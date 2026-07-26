@@ -171,19 +171,26 @@ test("할 일 목록과 표 블록을 추가한다", async ({ page }) => {
   await waitForSync(page);
   const editor = page.locator(".tiptap");
 
+  // 문서는 인메모리 협업 서버에 남아 실행마다 쌓인다. 이전 실행이 끝에
+  // 표를 남기면 Control+End가 커서를 표 셀 안에 두고, 그 안에서는 슬래시
+  // 메뉴로 블록을 만들 수 없다. 그래서 이 테스트는 문서를 비우고 시작한다.
+  const task = `논문 다시 읽기 ${Date.now()}`;
+
   await editor.click();
-  await page.keyboard.press("Control+End");
-  await page.keyboard.press("Enter");
+  await page.keyboard.press("Control+A");
+  await page.keyboard.press("Backspace");
   await page.keyboard.type("/할일");
   await page.getByTestId("slash-command-menu").getByRole("menuitem", { name: "할 일 목록" }).click();
-  await page.keyboard.type("논문 다시 읽기");
-  await expect(editor.locator('[data-type="taskList"]')).toContainText("논문 다시 읽기");
+  await page.keyboard.type(task);
+  await expect(
+    editor.locator('[data-type="taskList"]').filter({ hasText: task }),
+  ).toHaveCount(1);
 
   await page.keyboard.press("Control+End");
   await page.keyboard.press("Enter");
   await page.keyboard.type("/표");
   await page.getByTestId("slash-command-menu").getByRole("menuitem", { name: "표" }).click();
-  await expect(editor.locator("table")).toBeVisible();
+  await expect(editor.locator("table").last()).toBeVisible();
 });
 
 test("오프라인 변경 보관과 재연결 상태를 표시한다", async ({ page, context }) => {

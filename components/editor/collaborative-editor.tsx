@@ -125,7 +125,15 @@ function EditorSurface({
       TableKit.configure({ table: { resizable: true } }),
       Mathematics,
     ],
-  });
+  },
+  // provider가 바뀌면 편집기를 다시 만든다.
+  //
+  // 의존성을 주지 않으면 첫 렌더의 provider에 묶인 편집기가 그대로 남는다.
+  // StrictMode는 마운트를 두 번 하므로 그 첫 provider는 곧 파괴되고, 편집기는
+  // 죽은 Yjs 문서에 입력을 쓰게 된다. 화면에는 글자가 보이지만 서버에는
+  // 아무것도 도착하지 않는다.
+  [provider, canEdit],
+  );
 
   useEffect(() => {
     setEditor(editor);

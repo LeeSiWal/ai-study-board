@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 
 import { AiPanel } from "@/components/ai/ai-panel";
 
+import { randomId } from "@/lib/id";
+
 import { useShell } from "./shell-context";
 
 interface CommentThread {
@@ -99,7 +101,7 @@ function CommentsPanel() {
     setThreads((current) => [
       ...current,
       {
-        id: crypto.randomUUID(),
+        id: randomId(),
         author: "시월",
         body: body.trim(),
         anchor: node?.textContent || "페이지 전체",

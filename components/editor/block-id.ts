@@ -2,6 +2,8 @@ import { Extension } from "@tiptap/core";
 import { isChangeOrigin } from "@tiptap/extension-collaboration";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 
+import { randomId } from "@/lib/id";
+
 /**
  * 블록마다 영속 ID를 부여하는 확장.
  *
@@ -97,7 +99,7 @@ export const BlockId = Extension.create<BlockIdOptions>({
               return;
             }
 
-            const next = crypto.randomUUID();
+            const next = randomId();
             seen.add(next);
             transaction.setNodeAttribute(position, "blockId", next);
             changed = true;

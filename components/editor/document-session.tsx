@@ -42,6 +42,24 @@ interface DocumentSessionValue {
 
 const DocumentSessionContext = createContext<DocumentSessionValue | null>(null);
 
+/**
+ * 협업 서버 주소.
+ *
+ * 기본값을 127.0.0.1로 고정하면 브라우저가 자기 자신의 루프백을 찾는다.
+ * 개발 서버를 다른 기기에서 열면 연결이 영영 안 된다. 그래서 지금 페이지를
+ * 받아온 호스트를 그대로 쓰고, 배포처럼 협업 서버가 다른 곳에 있을 때만
+ * NEXT_PUBLIC_COLLAB_URL로 덮어쓴다.
+ */
+function collaborationUrl(): string {
+  const configured = process.env.NEXT_PUBLIC_COLLAB_URL;
+  if (configured) return configured;
+
+  const port = process.env.NEXT_PUBLIC_COLLAB_PORT ?? "1234";
+  const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+
+  return `${protocol}://${window.location.hostname}:${port}`;
+}
+
 export function useDocumentSession(): DocumentSessionValue {
   const value = useContext(DocumentSessionContext);
 
@@ -74,7 +92,7 @@ export function DocumentSession({
     const document = new Y.Doc();
 
     const instance = new HocuspocusProvider({
-      url: process.env.NEXT_PUBLIC_COLLAB_URL ?? "ws://127.0.0.1:1234",
+      url: collaborationUrl(),
       name: documentName,
       document,
 
