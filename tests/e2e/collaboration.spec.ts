@@ -140,10 +140,15 @@ test("AI 응답을 Diff로 검토하고 문서에 적용한다", async ({ page }
   const proposal = page.getByTestId("ai-proposal");
   await expect(proposal).toContainText("삭제 · 원문");
   await expect(proposal).toContainText("추가 · 제안");
-  await proposal.getByRole("button", { name: "전체 적용" }).click();
+  // 제안은 실제 blockId를 지목하므로 기준 버전이 함께 표시된다(§14).
+  await expect(proposal).toContainText("기준 버전");
 
-  await expect(proposal).toContainText("적용됨");
-  await expect(page.locator(".tiptap")).toContainText("Query는 질문");
+  await proposal.getByRole("button", { name: "전체 적용" }).click();
+  await expect(proposal).toContainText("문서에 반영했습니다");
+
+  // 목 어댑터는 대상 블록의 본문을 다듬어 되돌려 준다. 문서 끝에 붙이는 게
+  // 아니라 지목한 블록이 바뀌었는지가 확인 지점이다.
+  await expect(page.locator(".tiptap")).toContainText("(다듬은 문장)");
 });
 
 test("현재 블록에 댓글을 남기고 해결한다", async ({ page }) => {

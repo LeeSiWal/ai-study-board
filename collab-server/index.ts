@@ -1,3 +1,5 @@
+import { createServer } from "node:http";
+
 import { Server } from "@hocuspocus/server";
 
 import { verifyCollaborationToken } from "../lib/collab/token";
@@ -15,6 +17,7 @@ import { getVersion, loadDocument, storeDocument } from "./document-storage";
  */
 
 const PORT = Number(process.env.COLLAB_PORT ?? 1234);
+const VERSION_PORT = Number(process.env.COLLAB_VERSION_PORT ?? 1235);
 
 /** onAuthenticate가 돌려준 값이 이후 훅의 context로 들어온다. */
 interface ConnectionContext {
@@ -77,8 +80,52 @@ const server = new Server({
       `[collab] 해제 ${displayName} ← ${documentName} (version ${getVersion(documentName)})`,
     );
   },
+
+});
+
+/**
+ * 버전 조회용 별도 HTTP 서버.
+ *
+ * AI 제안의 `baseVersion`은 협업 서버만 아는 값이라(문서 상태가 여기 있다)
+ * Next.js가 읽을 수 있게 내보낸다.
+ *
+ * Hocuspocus의 `onRequest` 훅을 쓰지 않는 이유는, 응답을 직접 처리했음을
+ * 알리는 관례가 promise reject라서 v3에서는 그 rejection이 잡히지 않고
+ * 프로세스를 죽이기 때문이다. 별도 리스너가 더 단순하고 예측 가능하다.
+ *
+ * 서버 간 호출이므로 협업 토큰 비밀키를 공유 비밀로 써서 외부 접근을 막는다.
+ */
+const versionServer = createServer((request, response) => {
+  const url = new URL(request.url ?? "/", "http://127.0.0.1");
+  const match = /^\/documents\/(.+)\/version$/.exec(url.pathname);
+
+  if (!match) {
+    response.writeHead(404, { "content-type": "application/json" });
+    response.end(JSON.stringify({ error: "not found" }));
+    return;
+  }
+
+  if (request.headers["x-collab-secret"] !== process.env.COLLAB_TOKEN_SECRET) {
+    response.writeHead(401, { "content-type": "application/json" });
+    response.end(JSON.stringify({ error: "unauthorized" }));
+    return;
+  }
+
+  const documentName = decodeURIComponent(match[1]);
+
+  response.writeHead(200, { "content-type": "application/json" });
+  response.end(
+    JSON.stringify({ documentName, version: getVersion(documentName) }),
+  );
 });
 
 server.listen().then(() => {
   console.log(`[collab] 협업 서버가 ws://127.0.0.1:${PORT} 에서 대기 중입니다.`);
+
+  // 서버 간 호출만 받으므로 루프백에만 바인딩한다.
+  versionServer.listen(VERSION_PORT, "127.0.0.1", () => {
+    console.log(
+      `[collab] 버전 조회가 http://127.0.0.1:${VERSION_PORT} 에서 대기 중입니다.`,
+    );
+  });
 });
