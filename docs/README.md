@@ -1,11 +1,11 @@
 # AI 스터디 협업 플랫폼 — 문서 색인
 
-2026-07-26 기준 Phase 0(협업 수직 슬라이스)까지 구현되어 있다.
+2026-07-26 기준 프론트엔드 프로토타입 Phase 0~3을 구현했다.
 
 ```bash
 npm run dev            # Next.js 앱 + 협업 서버
 npm run verify:collab  # 브라우저 없이 협업 계층 검증
-npm run test:e2e       # Playwright (시스템 라이브러리 필요, 아래 참고)
+npm run test:e2e       # Playwright 브라우저 통합 테스트
 ```
 
 ## 문서
@@ -20,14 +20,11 @@ npm run test:e2e       # Playwright (시스템 라이브러리 필요, 아래 �
 
 프로토타입 설계 문서의 [구현 현황](superpowers/specs/2026-07-26-frontend-prototype-design.md#구현-현황-2026-07-26) 절부터 읽으면 된다.
 
-가장 먼저 할 일은 Playwright 실행을 막고 있는 시스템 라이브러리를 설치하는 것이다. Tiptap과 Yjs의 결합이 아직 브라우저에서 확인되지 않았다.
-
-```bash
-sudo npx playwright install-deps chromium
-npm run test:e2e
-```
-
-그 다음이 Phase 1(앱 프레임)이다.
+Phase 1~3 프로토타입 범위는 완료했다. 현재 공동
+문서에는 제목 편집, 기본 블록 편집, 슬래시 메뉴, 선택 툴바, 저장 상태,
+접속자와 협업 커서, 할 일 목록과 표가 구현되어 있다. AI 패널은 스트리밍,
+현재 문서 컨텍스트, Diff·승인·충돌·실행 취소 흐름을 제공하고 댓글은 블록
+연결, 답글, 해결 상태를 제공한다.
 
 ## 설계에서 가장 중요한 원칙
 

@@ -40,7 +40,7 @@ interface TopBarProps {
 }
 
 export function TopBar({ breadcrumbs, title }: TopBarProps) {
-  const { status, peers } = useDocumentSession();
+  const { status, peers, title: sessionTitle } = useDocumentSession();
   const { openPanel, togglePanel, setSidebarOpen } = useShell();
 
   return (
@@ -75,7 +75,7 @@ export function TopBar({ breadcrumbs, title }: TopBarProps) {
             </span>
           </Fragment>
         ))}
-        <span className="truncate font-medium">{title}</span>
+        <span className="truncate font-medium">{sessionTitle || title}</span>
       </nav>
 
       <div className="ml-auto flex items-center gap-1">

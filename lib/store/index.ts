@@ -92,6 +92,19 @@ export function findDocumentMeta(resourceId: string): DocumentMeta | null {
   );
 }
 
+export function updateResourceTitle(
+  resourceId: string,
+  title: string,
+): Resource | null {
+  const resource = getStore().resources.find(
+    (candidate) => candidate.id === resourceId,
+  );
+  if (!resource) return null;
+
+  resource.title = title;
+  return resource;
+}
+
 export function findMembership(
   workspaceId: string,
   userId: string,

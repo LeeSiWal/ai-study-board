@@ -174,6 +174,9 @@ function WorkspaceSwitcher({
           <span className="min-w-0 flex-1 truncate font-medium">
             {workspace.name}
           </span>
+          <span className="sr-only" data-testid="current-user">
+            {viewer.displayName}
+          </span>
           <ChevronsUpDown
             aria-hidden
             className="text-text-tertiary size-4 shrink-0"

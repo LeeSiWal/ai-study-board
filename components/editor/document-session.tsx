@@ -34,6 +34,8 @@ export interface Peer {
 interface DocumentSessionValue {
   provider: HocuspocusProvider | null;
   status: SaveStatus;
+  title: string;
+  setTitle: (title: string) => void;
   /** 자신을 제외한 접속자. */
   peers: Peer[];
 }
@@ -53,17 +55,20 @@ export function useDocumentSession(): DocumentSessionValue {
 interface DocumentSessionProps {
   resourceId: string;
   documentName: string;
+  initialTitle: string;
   children: React.ReactNode;
 }
 
 export function DocumentSession({
   resourceId,
   documentName,
+  initialTitle,
   children,
 }: DocumentSessionProps) {
   const [provider, setProvider] = useState<HocuspocusProvider | null>(null);
   const [status, setStatus] = useState<SaveStatus>({ kind: "connecting" });
   const [peers, setPeers] = useState<Peer[]>([]);
+  const [title, setTitle] = useState(initialTitle);
 
   useEffect(() => {
     const document = new Y.Doc();
@@ -131,6 +136,14 @@ export function DocumentSession({
       },
     });
 
+    const handleOffline = () => setStatus({ kind: "offline" });
+    const handleOnline = () => {
+      setStatus({ kind: "connecting" });
+      instance.connect();
+    };
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleOnline);
+
     // 외부 시스템의 핸들을 자식에게 노출하는 것이라 effect에서 설정한다.
     // 렌더 중에 만들면 StrictMode의 이중 호출에서 WebSocket이 하나 샌다.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -139,14 +152,16 @@ export function DocumentSession({
     return () => {
       instance.destroy();
       document.destroy();
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", handleOnline);
       setProvider(null);
       setPeers([]);
     };
   }, [documentName, resourceId]);
 
   const value = useMemo<DocumentSessionValue>(
-    () => ({ provider, status, peers }),
-    [provider, status, peers],
+    () => ({ provider, status, peers, title, setTitle }),
+    [provider, status, peers, title],
   );
 
   return <DocumentSessionContext value={value}>{children}</DocumentSessionContext>;

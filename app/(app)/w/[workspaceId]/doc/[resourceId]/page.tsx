@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { CollaborativeEditor } from "@/components/editor/collaborative-editor";
 import { DocumentSession } from "@/components/editor/document-session";
+import { DocumentTitle } from "@/components/editor/document-title";
 import { TopBar, type Breadcrumb } from "@/components/layout/top-bar";
 import { currentUser } from "@/lib/auth";
 import { documentNameForResource } from "@/lib/contracts/collaboration";
@@ -64,6 +65,7 @@ export default async function DocumentPage({
     <DocumentSession
       resourceId={resourceId}
       documentName={documentNameForResource(resourceId)}
+      initialTitle={resource.title}
     >
       <TopBar breadcrumbs={breadcrumbs} title={resource.title} />
 
@@ -76,9 +78,12 @@ export default async function DocumentPage({
                 {resource.icon}
               </p>
             ) : null}
-            <h1 className="text-[32px] leading-tight font-semibold">
-              {resource.title}
-            </h1>
+            <DocumentTitle
+              key={resourceId}
+              resourceId={resourceId}
+              initialTitle={resource.title}
+              canEdit={canEdit}
+            />
             {!canEdit ? (
               <p role="note" className="text-warning mt-2 text-xs">
                 읽기 전용입니다. 이 페이지를 편집할 권한이 없습니다.

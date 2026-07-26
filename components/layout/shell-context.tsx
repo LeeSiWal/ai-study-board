@@ -1,5 +1,6 @@
 "use client";
 
+import type { Editor } from "@tiptap/core";
 import { createContext, useContext, useMemo, useState } from "react";
 
 /**
@@ -22,6 +23,8 @@ interface ShellState {
 
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
+  editor: Editor | null;
+  setEditor: (editor: Editor | null) => void;
 }
 
 const ShellContext = createContext<ShellState | null>(null);
@@ -29,6 +32,7 @@ const ShellContext = createContext<ShellState | null>(null);
 export function ShellProvider({ children }: { children: React.ReactNode }) {
   const [openPanel, setOpenPanel] = useState<PanelKind | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [editor, setEditor] = useState<Editor | null>(null);
 
   const value = useMemo<ShellState>(
     () => ({
@@ -38,8 +42,10 @@ export function ShellProvider({ children }: { children: React.ReactNode }) {
       closePanel: () => setOpenPanel(null),
       sidebarOpen,
       setSidebarOpen,
+      editor,
+      setEditor,
     }),
-    [openPanel, sidebarOpen],
+    [editor, openPanel, sidebarOpen],
   );
 
   return <ShellContext value={value}>{children}</ShellContext>;

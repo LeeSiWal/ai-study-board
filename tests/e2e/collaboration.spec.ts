@@ -18,7 +18,7 @@ async function loginAs(page: Page, userId: string) {
 
 /** 협업 서버와 동기화가 끝나야 서로의 변경이 오간다. */
 async function waitForSync(page: Page) {
-  await expect(page.getByTestId("connection-status")).toHaveText("저장됨", {
+  await expect(page.getByTestId("save-status")).toContainText("저장됨", {
     timeout: 20_000,
   });
 }
@@ -93,5 +93,107 @@ test("편집 권한이 없는 멤버는 읽기 전용으로 연결된다", async
   await expect(page.locator(".tiptap")).toHaveAttribute(
     "contenteditable",
     "false",
+    { timeout: 20_000 },
   );
+});
+
+test("슬래시 메뉴로 제목 블록을 추가한다", async ({ page }) => {
+  await loginAs(page, "user-siwol");
+  await waitForSync(page);
+
+  await page.locator(".tiptap").click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("/제목");
+
+  const menu = page.getByTestId("slash-command-menu");
+  await expect(menu).toBeVisible();
+  await menu.getByRole("menuitem", { name: "제목 2" }).click();
+  await page.keyboard.type("새로운 소제목");
+
+  await expect(page.locator(".tiptap h2").last()).toHaveText("새로운 소제목");
+});
+
+test("문서 제목을 메타데이터로 저장한다", async ({ page }) => {
+  await loginAs(page, "user-siwol");
+  const title = `Self-Attention 정리 ${Date.now()}`;
+  const input = page.getByTestId("document-title");
+
+  await input.fill(title);
+  await input.press("Enter");
+
+  await expect(page.getByTestId("document-title")).toHaveValue(title);
+  await expect(page.getByRole("navigation", { name: "상위 경로" })).toContainText(
+    title,
+  );
+});
+
+test("AI 응답을 Diff로 검토하고 문서에 적용한다", async ({ page }) => {
+  await loginAs(page, "user-siwol");
+  await waitForSync(page);
+
+  await page.getByRole("button", { name: "AI", exact: true }).click();
+  const panel = page.getByTestId("panel-ai");
+  await panel.getByRole("button", { name: "핵심 개념 설명" }).click();
+  await panel.getByRole("button", { name: "수정 제안으로 보기" }).click();
+
+  const proposal = page.getByTestId("ai-proposal");
+  await expect(proposal).toContainText("삭제 · 원문");
+  await expect(proposal).toContainText("추가 · 제안");
+  await proposal.getByRole("button", { name: "전체 적용" }).click();
+
+  await expect(proposal).toContainText("적용됨");
+  await expect(page.locator(".tiptap")).toContainText("Query는 질문");
+});
+
+test("현재 블록에 댓글을 남기고 해결한다", async ({ page }) => {
+  await loginAs(page, "user-siwol");
+  await waitForSync(page);
+
+  await page.locator(".tiptap").click();
+  await page.getByRole("button", { name: "댓글", exact: true }).click();
+  const panel = page.getByTestId("panel-comments");
+  await panel.getByPlaceholder("댓글을 입력하세요").fill("예시를 하나 더 넣어주세요.");
+  await panel.getByRole("button", { name: "댓글 추가" }).click();
+
+  await expect(panel).toContainText("예시를 하나 더 넣어주세요.");
+  await panel.getByRole("button", { name: "해결" }).click();
+  await expect(panel).not.toContainText("예시를 하나 더 넣어주세요.");
+});
+
+test("할 일 목록과 표 블록을 추가한다", async ({ page }) => {
+  await loginAs(page, "user-siwol");
+  await waitForSync(page);
+  const editor = page.locator(".tiptap");
+
+  await editor.click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("/할일");
+  await page.getByTestId("slash-command-menu").getByRole("menuitem", { name: "할 일 목록" }).click();
+  await page.keyboard.type("논문 다시 읽기");
+  await expect(editor.locator('[data-type="taskList"]')).toContainText("논문 다시 읽기");
+
+  await page.keyboard.press("Control+End");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("/표");
+  await page.getByTestId("slash-command-menu").getByRole("menuitem", { name: "표" }).click();
+  await expect(editor.locator("table")).toBeVisible();
+});
+
+test("오프라인 변경 보관과 재연결 상태를 표시한다", async ({ page, context }) => {
+  await loginAs(page, "user-siwol");
+  await waitForSync(page);
+
+  await context.setOffline(true);
+  await expect(page.getByTestId("save-status")).toContainText("오프라인", {
+    timeout: 15_000,
+  });
+  await page.locator(".tiptap").click();
+  await page.keyboard.type(`오프라인 변경 ${Date.now()}`);
+
+  await context.setOffline(false);
+  await expect(page.getByTestId("save-status")).toContainText("저장됨", {
+    timeout: 20_000,
+  });
 });
