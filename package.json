@@ -1,0 +1,47 @@
+{
+  "name": "ai-study-board",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n web,collab -c cyan,magenta \"npm:dev:web\" \"npm:dev:collab\"",
+    "dev:web": "next dev",
+    "dev:collab": "tsx --env-file=.env.local collab-server/index.ts",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint",
+    "verify:collab": "tsx --env-file=.env.local scripts/verify-collab.ts",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@hocuspocus/provider": "^3.4.4",
+    "@hocuspocus/server": "^3.4.4",
+    "@tiptap/extension-collaboration": "^3.29.0",
+    "@tiptap/extension-collaboration-caret": "^3.29.0",
+    "@tiptap/pm": "^3.29.0",
+    "@tiptap/react": "^3.29.0",
+    "@tiptap/starter-kit": "^3.29.0",
+    "jose": "^6.2.4",
+    "next": "16.2.12",
+    "next-auth": "^5.0.0-beta.32",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "y-protocols": "^1.0.7",
+    "yjs": "^13.6.31",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.0",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/ws": "^8.18.1",
+    "concurrently": "^9.2.4",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.12",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.1",
+    "typescript": "^5"
+  }
+}
