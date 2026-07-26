@@ -24,11 +24,21 @@
 
 `POST /api/resources/:id/collaboration-token`은 미인증 시 401을 돌려준다. 타입 체크·lint·프로덕션 빌드 모두 통과.
 
+`npm test`가 jsdom에서 Tiptap을 직접 띄워 편집기 로직을 검증한다. 6개 통과.
+
+- 입력한 블록마다 ID 부여, 문서 내 유일성
+- 블록 분할 시 ID 중복 없음 (`keepOnSplit: false`의 실제 효과)
+- 편집해도 기존 blockId 유지 — AI 제안이 들고 있는 ID가 유효해야 한다
+- 두 편집기 간 Collaboration 병합
+- 원격에서 온 블록의 ID를 다시 발급하지 않음
+
+이 테스트는 실제로 회귀를 잡는다. `BlockId` 확장을 빼면 6개 중 5개가 실패한다.
+
 ### 검증되지 않은 것
 
-**Tiptap + Yjs 결합은 아직 브라우저에서 확인하지 못했다.** Phase 0의 통합 리스크 4개 중 2·3번(협업 서버, 토큰 검증)만 걷혔고 1·4번(편집기 결합, App Router 경계)은 남아 있다.
+**브라우저에서의 결합은 아직 확인하지 못했다.** Phase 0의 통합 리스크 4개 중 1·2·3번은 걷혔고, 4번(App Router 경계 — SSR 비활성화와 하이드레이션)이 남아 있다. jsdom 테스트는 편집기 로직을 덮지만 Next.js의 렌더 경계는 덮지 못한다.
 
-Playwright 테스트(`tests/e2e/collaboration.spec.ts`)는 작성해 두었으나 실행되지 않는다. Chromium이 시스템 라이브러리를 찾지 못한다.
+Playwright 테스트(`tests/e2e/collaboration.spec.ts`)는 작성해 두었으나 실행되지 않는다. Chromium이 시스템 라이브러리를 찾지 못한다. 시스템 브라우저도 없고 `libatk-1.0.so.0`, `libatk-bridge-2.0.so.0`, `libgbm.so.1`, `libasound.so.2`가 모두 빠져 있어 우회할 방법이 없다.
 
 ```
 error while loading shared libraries: libatk-1.0.so.0
