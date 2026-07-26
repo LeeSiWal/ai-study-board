@@ -7,7 +7,18 @@ import { defineConfig, devices } from "@playwright/test";
  * 개발 중 이미 떠 있으면 재사용한다(`reuseExistingServer`).
  */
 
-const WEB_PORT = 3100;
+/**
+ * 개발 서버와 같은 포트를 쓰고, 떠 있으면 재사용한다.
+ *
+ * 테스트를 별도 포트로 격리하려 했으나 Next.js 16이 같은 디렉터리에서 dev
+ * 서버를 두 개 띄우지 못한다. 그래서 테스트는 개발 서버를 공유한다.
+ *
+ * 대가는 테스트가 개발용 문서를 헤집는다는 것이다. 실제로 "할 일 목록과 표"
+ * 테스트가 이전 실행이 남긴 표 때문에 절반쯤 실패했었다. 각 테스트가 고유한
+ * 문구를 쓰거나 문서를 비우고 시작하는 이유가 이것이다.
+ */
+const WEB_PORT = 7171;
+const COLLAB_PORT = 7172;
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -30,12 +41,12 @@ export default defineConfig({
   webServer: [
     {
       command: "npm run dev:collab",
-      port: Number(process.env.COLLAB_PORT ?? 1234),
+      port: COLLAB_PORT,
       reuseExistingServer: true,
       timeout: 60_000,
     },
     {
-      command: `npm run dev:web -- --port ${WEB_PORT}`,
+      command: "npm run dev:web",
       port: WEB_PORT,
       reuseExistingServer: true,
       timeout: 120_000,

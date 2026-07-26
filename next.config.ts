@@ -8,7 +8,13 @@ const nextConfig: NextConfig = {
   // 상단 바가 "연결 중…"에서 멈춘다.
   //
   // CIDR(192.168.1.0/24)은 파싱되지 않는다. 호스트를 정확히 적어야 한다.
-  allowedDevOrigins: ["127.0.0.1", "localhost", "192.168.1.64"],
+  // 터널이나 리버스 프록시로 여는 도메인도 여기에 넣어야 한다.
+  allowedDevOrigins: [
+    "127.0.0.1",
+    "localhost",
+    "192.168.1.64",
+    "study.19921005.xyz",
+  ],
 };
 
 export default nextConfig;

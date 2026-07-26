@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "concurrently -n web,collab -c cyan,magenta \"npm:dev:web\" \"npm:dev:collab\"",
-    "dev:web": "next dev",
+    "dev:web": "next dev --port 7171 --hostname 0.0.0.0",
     "dev:collab": "tsx --env-file=.env.local collab-server/index.ts",
     "build": "next build",
     "start": "next start",
