@@ -137,14 +137,18 @@ test("AI 응답을 Diff로 검토하고 문서에 적용한다", async ({ page }
   await panel.getByRole("button", { name: "핵심 개념 설명" }).click();
   await panel.getByRole("button", { name: "수정 제안으로 보기" }).click();
 
-  const proposal = page.getByTestId("ai-proposal");
+  // 제안은 서버에 쌓이므로 이전 실행이 남긴 것이 함께 보인다.
+  // 방금 만든 것은 목록 맨 위에 온다.
+  const proposal = page.getByTestId("ai-proposal").first();
   await expect(proposal).toContainText("삭제 · 원문");
   await expect(proposal).toContainText("추가 · 제안");
   // 제안은 실제 blockId를 지목하므로 기준 버전이 함께 표시된다(§14).
   await expect(proposal).toContainText("기준 버전");
+  // 어디서 온 제안인지가 승인 판단에 영향을 준다(§15.4).
+  await expect(proposal).toContainText("워크스페이스 AI");
 
   await proposal.getByRole("button", { name: "전체 적용" }).click();
-  await expect(proposal).toContainText("문서에 반영했습니다");
+  await expect(panel).toContainText("문서에 반영했습니다");
 
   // 목 어댑터는 대상 블록의 본문을 다듬어 되돌려 준다. 문서 끝에 붙이는 게
   // 아니라 지목한 블록이 바뀌었는지가 확인 지점이다.

@@ -1,11 +1,14 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
+import { readContentVersion } from "../collab/version";
+import { aiOperationSchema, storedProposalSchema } from "../contracts/ai";
 import {
   findResourceById,
   listResources,
   resolvePermissions,
 } from "../store";
+import { saveProposal } from "../store/proposals";
 import { buildResourceTree, type ResourceNode } from "../store/resource-tree";
 import type { User } from "../store/types";
 import { readDocumentBlocks } from "./document-reader";
@@ -23,6 +26,8 @@ import { readDocumentBlocks } from "./document-reader";
 export interface McpContext {
   user: User;
   workspaceId: string;
+  /** 어느 클라이언트가 붙었는지. 제안 목록에 그대로 보인다. */
+  clientLabel: string;
 }
 
 /** 권한이 있는 리소스만 남긴다(§16.5). */
@@ -152,6 +157,102 @@ export function buildMcpServer(context: McpContext): McpServer {
             text: matches.length
               ? matches.join("\n")
               : `"${query}"와 일치하는 페이지가 없습니다.`,
+          },
+        ],
+      };
+    },
+  );
+
+  server.registerTool(
+    "propose_edit",
+    {
+      title: "수정 제안",
+      description:
+        "문서 수정을 제안합니다. 문서를 직접 바꾸지 않습니다. 제안은 " +
+        "워크스페이스 멤버가 브라우저에서 확인하고 승인해야 반영됩니다. " +
+        "대상 블록은 read_page가 돌려준 blockId로 지목하세요.",
+      inputSchema: {
+        resourceId: z.string().describe("수정할 문서 id"),
+        summary: z
+          .string()
+          .min(1)
+          .describe("이 제안이 무엇을 바꾸는지 한 문장"),
+        operations: z
+          .array(aiOperationSchema)
+          .min(1)
+          .max(10)
+          .describe("blockId로 대상을 지목한 변경 목록"),
+      },
+    },
+    async ({ resourceId, summary, operations }) => {
+      const resource = findResourceById(resourceId);
+
+      if (!resource || resource.workspaceId !== context.workspaceId) {
+        return errorResult("그런 페이지가 없습니다.");
+      }
+
+      // 읽기만 가능한 사용자의 토큰으로 제안을 만들 수는 없다.
+      if (!resolvePermissions(resourceId, context.user.id).includes("edit")) {
+        return errorResult("이 페이지를 편집할 권한이 없습니다.");
+      }
+
+      if (resource.type !== "DOCUMENT") {
+        return errorResult("문서만 수정을 제안할 수 있습니다.");
+      }
+
+      // 지금 문서에 실제로 있는 blockId인지 확인한다. 없는 블록을 지목한
+      // 제안은 승인해도 적용할 수 없으므로 여기서 막는다.
+      const blocks = await readDocumentBlocks(
+        resourceId,
+        context.workspaceId,
+        context.user.id,
+        context.user.displayName,
+      );
+
+      const known = new Set(blocks.map((block) => block.blockId));
+      const unknown = operations
+        .map((operation) => operation.blockId)
+        .filter((blockId) => !known.has(blockId));
+
+      if (unknown.length) {
+        return errorResult(
+          `문서에 없는 blockId입니다: ${unknown.join(", ")}\n` +
+            `read_page로 현재 블록 목록을 다시 받아 주세요.`,
+        );
+      }
+
+      const baseVersion = await readContentVersion(resourceId);
+
+      const proposal = saveProposal({
+        proposal: storedProposalSchema
+          .omit({
+            status: true,
+            createdAt: true,
+            resolvedAt: true,
+            resolvedBy: true,
+          })
+          .parse({
+            id: crypto.randomUUID(),
+            resourceId,
+            baseVersion,
+            modelLabel: "MCP 클라이언트",
+            summary,
+            operations,
+            origin: "mcp_client",
+            createdBy: context.user.id,
+            createdByLabel: context.clientLabel,
+          }),
+      });
+
+      return {
+        content: [
+          {
+            type: "text",
+            text:
+              `제안을 등록했습니다 (id: ${proposal.id}).\n` +
+              `${operations.length}개 변경, 기준 버전 ${baseVersion}.\n\n` +
+              `문서는 아직 바뀌지 않았습니다. 워크스페이스 멤버가 ` +
+              `"${resource.title}" 문서의 AI 패널에서 확인하고 승인해야 반영됩니다.`,
           },
         ],
       };

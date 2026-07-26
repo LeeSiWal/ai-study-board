@@ -1,20 +1,22 @@
 "use client";
 
-import { Check, Loader2, Send, Sparkles, Undo2, X } from "lucide-react";
+import { Loader2, RefreshCw, Send, Sparkles, Undo2, X } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useRef, useState } from "react";
 
-import { applyOperations, collectBlocks, currentTextOf } from "@/components/editor/proposal";
+import { collectBlocks, currentTextOf } from "@/components/editor/proposal";
 import { useShell } from "@/components/layout/shell-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { AiOperation, AiProposal } from "@/lib/contracts/ai";
+import type { AiOperation, StoredProposal } from "@/lib/contracts/ai";
+
+import { useProposals } from "./use-proposals";
 
 /**
  * AI-01 AI 패널 / AI-02 수정 제안 비교 — UI 명세 §13·§14
  *
- * 답변과 제안 모두 AI Gateway를 거친 실제 실행 결과다. 제안은 `blockId`로
- * 대상을 지목하고, 충돌 판정은 협업 서버의 `content_version`으로 한다.
+ * 제안은 서버에 산다. 워크스페이스 AI가 만든 것과 Claude Code 같은 외부
+ * MCP 클라이언트가 만든 것이 한 목록에 섞여 오고, 승인 절차는 하나다.
  */
 
 const SUGGESTIONS = [
@@ -22,14 +24,6 @@ const SUGGESTIONS = [
   "핵심 개념 설명",
   "예상 질문 만들기",
 ] as const;
-
-type ProposalState =
-  | { kind: "none" }
-  | { kind: "loading" }
-  | { kind: "ready"; proposal: AiProposal; conflicted: boolean }
-  | { kind: "applied"; proposal: AiProposal; count: number }
-  | { kind: "rejected" }
-  | { kind: "error"; message: string };
 
 export function AiPanel() {
   const { editor } = useShell();
@@ -40,11 +34,10 @@ export function AiPanel() {
   const [answer, setAnswer] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [answerError, setAnswerError] = useState<string | null>(null);
-  const [proposalState, setProposalState] = useState<ProposalState>({
-    kind: "none",
-  });
+  const [proposing, setProposing] = useState(false);
 
   const abort = useRef<AbortController | null>(null);
+  const proposals = useProposals(resourceId, editor);
 
   function stop() {
     abort.current?.abort();
@@ -59,7 +52,6 @@ export function AiPanel() {
     setQuestion(prompt);
     setAnswer("");
     setAnswerError(null);
-    setProposalState({ kind: "none" });
     setStreaming(true);
 
     const controller = new AbortController();
@@ -107,7 +99,8 @@ export function AiPanel() {
   async function makeProposal() {
     if (!editor || !resourceId) return;
 
-    setProposalState({ kind: "loading" });
+    setProposing(true);
+    setAnswerError(null);
 
     try {
       const response = await fetch("/api/ai/runs", {
@@ -128,50 +121,15 @@ export function AiPanel() {
         throw new Error(body?.error ?? "제안을 만들지 못했습니다.");
       }
 
-      setProposalState({
-        kind: "ready",
-        proposal: body as AiProposal,
-        conflicted: false,
-      });
+      // 서버에 저장됐으므로 목록을 다시 읽는다.
+      await proposals.refresh();
     } catch (error) {
-      setProposalState({
-        kind: "error",
-        message:
-          error instanceof Error ? error.message : "제안을 만들지 못했습니다.",
-      });
-    }
-  }
-
-  /**
-   * 적용 직전에 현재 버전을 다시 읽는다.
-   *
-   * 제안을 만든 뒤 다른 멤버가 문서를 바꿨을 수 있다. 본문 길이나 마지막
-   * 글자를 비교하면 가운데를 고친 경우를 놓치므로, 저장할 때마다 올라가는
-   * 정수를 기준으로 판단한다(§14).
-   */
-  async function applyProposal() {
-    if (proposalState.kind !== "ready" || !editor || !resourceId) return;
-
-    const { proposal } = proposalState;
-
-    try {
-      const response = await fetch(
-        `/api/resources/${resourceId}/content-version`,
+      setAnswerError(
+        error instanceof Error ? error.message : "제안을 만들지 못했습니다.",
       );
-      const body: { version?: number } = await response.json();
-
-      if (response.ok && body.version !== proposal.baseVersion) {
-        setProposalState({ kind: "ready", proposal, conflicted: true });
-        return;
-      }
-    } catch {
-      // 버전을 못 읽으면 조용히 덮어쓰지 않고 충돌로 취급한다.
-      setProposalState({ kind: "ready", proposal, conflicted: true });
-      return;
+    } finally {
+      setProposing(false);
     }
-
-    const count = applyOperations(editor, proposal.id, proposal.operations);
-    setProposalState({ kind: "applied", proposal, count });
   }
 
   return (
@@ -217,8 +175,16 @@ export function AiPanel() {
                 size="sm"
                 variant="outline"
                 onClick={makeProposal}
+                disabled={proposing}
               >
-                수정 제안으로 보기
+                {proposing ? (
+                  <>
+                    <Loader2 aria-hidden className="size-3.5 animate-spin" />
+                    제안 만드는 중…
+                  </>
+                ) : (
+                  "수정 제안으로 보기"
+                )}
               </Button>
             ) : null}
           </div>
@@ -228,14 +194,12 @@ export function AiPanel() {
           </p>
         )}
 
-        <ProposalCard
-          state={proposalState}
-          onApply={applyProposal}
-          onReject={() => setProposalState({ kind: "rejected" })}
-          onUndo={() => editor?.commands.undo()}
+        <ProposalSection
+          state={proposals}
           currentText={(blockId) =>
             editor ? currentTextOf(editor, blockId) : null
           }
+          onUndo={() => editor?.commands.undo()}
         />
       </div>
 
@@ -267,105 +231,133 @@ export function AiPanel() {
   );
 }
 
-function ProposalCard({
+function ProposalSection({
   state,
-  onApply,
-  onReject,
-  onUndo,
   currentText,
+  onUndo,
 }: {
-  state: ProposalState;
-  onApply: () => void;
-  onReject: () => void;
-  onUndo: () => void;
+  state: ReturnType<typeof useProposals>;
   currentText: (blockId: string) => string | null;
+  onUndo: () => void;
 }) {
-  if (state.kind === "none" || state.kind === "rejected") return null;
-
-  if (state.kind === "loading") {
-    return (
-      <p className="text-text-secondary flex items-center gap-2 text-xs">
-        <Loader2 aria-hidden className="size-3.5 animate-spin" />
-        제안을 만드는 중…
-      </p>
-    );
-  }
-
-  if (state.kind === "error") {
-    return (
-      <p
-        role="alert"
-        className="border-danger/30 bg-danger/5 text-danger rounded-lg border px-3 py-2 text-xs"
-      >
-        {state.message}
-      </p>
-    );
-  }
-
-  if (state.kind === "applied") {
-    return (
-      <div
-        className="border-border rounded-xl border p-3"
-        data-testid="ai-proposal"
-      >
-        <div className="text-success flex items-center justify-between text-xs">
-          <span className="flex items-center gap-1">
-            <Check aria-hidden className="size-3.5" />
-            AI 제안 {state.count}개를 문서에 반영했습니다.
-          </span>
-          <Button size="sm" variant="ghost" onClick={onUndo}>
-            <Undo2 aria-hidden className="size-3.5" /> 실행 취소
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  const { proposal, conflicted } = state;
-
   return (
-    <div className="border-border rounded-xl border p-3" data-testid="ai-proposal">
-      <div className="flex items-baseline justify-between">
-        <h3 className="font-medium">AI 수정 제안</h3>
-        <span className="text-text-tertiary text-[11px]">
-          기준 버전 {proposal.baseVersion}
-        </span>
+    <section aria-label="수정 제안" className="space-y-2">
+      <div className="flex items-center justify-between">
+        <h3 className="text-text-secondary text-xs font-medium">
+          대기 중인 제안 {state.proposals.length > 0 ? `(${state.proposals.length})` : ""}
+        </h3>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-6"
+          aria-label="제안 다시 불러오기"
+          onClick={() => void state.refresh()}
+          disabled={state.loading}
+        >
+          <RefreshCw
+            aria-hidden
+            className={`size-3.5 ${state.loading ? "animate-spin" : ""}`}
+          />
+        </Button>
       </div>
-      <p className="text-text-secondary mt-1 text-xs">{proposal.summary}</p>
 
-      {conflicted ? (
-        <p role="alert" className="text-warning mt-2 text-xs">
-          제안이 생성된 후 문서가 변경되었습니다. 변경 내용을 현재 문서에 맞춰
-          다시 확인해주세요.
+      {state.notice ? (
+        <div className="border-success/30 bg-success/5 text-success flex items-center justify-between rounded-lg border px-3 py-2 text-xs">
+          <span>{state.notice}</span>
+          <span className="flex items-center gap-1">
+            <Button size="sm" variant="ghost" onClick={onUndo}>
+              <Undo2 aria-hidden className="size-3.5" /> 실행 취소
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="size-6"
+              aria-label="알림 닫기"
+              onClick={state.dismissNotice}
+            >
+              <X aria-hidden className="size-3.5" />
+            </Button>
+          </span>
+        </div>
+      ) : null}
+
+      {state.error ? (
+        <p
+          role="alert"
+          className="border-danger/30 bg-danger/5 text-danger rounded-lg border px-3 py-2 text-xs"
+        >
+          {state.error}
         </p>
       ) : null}
 
-      {proposal.operations.length === 0 ? (
-        <p className="text-text-secondary mt-2 text-xs">
-          제안할 변경이 없습니다.
+      {!state.proposals.length && !state.loading ? (
+        <p className="text-text-tertiary text-xs">
+          대기 중인 제안이 없습니다. 외부 AI가 만든 제안도 여기에 나타납니다.
         </p>
-      ) : (
-        <ul className="mt-2 space-y-2">
-          {proposal.operations.map((operation, index) => (
-            <li key={`${operation.blockId}-${index}`}>
-              <OperationDiff
-                operation={operation}
-                before={currentText(operation.blockId)}
-              />
-            </li>
-          ))}
-        </ul>
-      )}
+      ) : null}
+
+      {state.proposals.map((proposal) => (
+        <ProposalCard
+          key={proposal.id}
+          proposal={proposal}
+          currentText={currentText}
+          onApprove={() => void state.approve(proposal)}
+          onReject={() => void state.reject(proposal)}
+        />
+      ))}
+    </section>
+  );
+}
+
+function ProposalCard({
+  proposal,
+  currentText,
+  onApprove,
+  onReject,
+}: {
+  proposal: StoredProposal;
+  currentText: (blockId: string) => string | null;
+  onApprove: () => void;
+  onReject: () => void;
+}) {
+  const external = proposal.origin === "mcp_client";
+
+  return (
+    <div className="border-border rounded-xl border p-3" data-testid="ai-proposal">
+      <div className="flex items-baseline justify-between gap-2">
+        {/* 어디서 온 제안인지가 승인 판단에 영향을 준다(§15.4). */}
+        <span
+          className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+            external
+              ? "bg-warning/10 text-warning"
+              : "bg-primary-soft text-primary"
+          }`}
+        >
+          {external ? "외부 AI" : "워크스페이스 AI"} · {proposal.createdByLabel}
+        </span>
+        <span className="text-text-tertiary shrink-0 text-[11px]">
+          기준 버전 {proposal.baseVersion}
+        </span>
+      </div>
+
+      <p className="text-text-secondary mt-2 text-xs">{proposal.summary}</p>
+
+      <ul className="mt-2 space-y-2">
+        {proposal.operations.map((operation, index) => (
+          <li key={`${operation.blockId}-${index}`}>
+            <OperationDiff
+              operation={operation}
+              before={currentText(operation.blockId)}
+            />
+          </li>
+        ))}
+      </ul>
 
       <div className="mt-3 flex justify-end gap-2">
         <Button size="sm" variant="ghost" onClick={onReject}>
           거절
         </Button>
-        <Button
-          size="sm"
-          disabled={conflicted || proposal.operations.length === 0}
-          onClick={onApply}
-        >
+        <Button size="sm" onClick={onApprove}>
           전체 적용
         </Button>
       </div>
@@ -373,9 +365,7 @@ function ProposalCard({
   );
 }
 
-/**
- * 색만으로 변경 종류를 구분하지 않고 레이블을 함께 쓴다(§14·§26).
- */
+/** 색만으로 변경 종류를 구분하지 않고 레이블을 함께 쓴다(§14·§26). */
 function OperationDiff({
   operation,
   before,

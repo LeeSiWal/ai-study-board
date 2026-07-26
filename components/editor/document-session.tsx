@@ -54,7 +54,7 @@ function collaborationUrl(): string {
   const configured = process.env.NEXT_PUBLIC_COLLAB_URL;
   if (configured) return configured;
 
-  const port = process.env.NEXT_PUBLIC_COLLAB_PORT ?? "1234";
+  const port = process.env.NEXT_PUBLIC_COLLAB_PORT ?? "7172";
   const protocol = window.location.protocol === "https:" ? "wss" : "ws";
 
   return `${protocol}://${window.location.hostname}:${port}`;

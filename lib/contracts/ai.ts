@@ -71,6 +71,46 @@ export const aiProposalSchema = aiProposalDraftSchema.extend({
 
 export type AiProposal = z.infer<typeof aiProposalSchema>;
 
+/**
+ * 제안을 만든 주체.
+ *
+ * 워크스페이스 안의 AI인지 밖에서 붙은 MCP 클라이언트인지 구분한다.
+ * 사용자가 승인 여부를 판단할 때 이 정보가 필요하다. 외부에서 온 제안은
+ * 워크스페이스 정책 바깥에서 만들어졌기 때문이다(아키텍처 §15.4).
+ */
+export const aiProposalOriginSchema = z.enum(["workspace_ai", "mcp_client"]);
+
+export type AiProposalOrigin = z.infer<typeof aiProposalOriginSchema>;
+
+export const aiProposalStatusSchema = z.enum([
+  "pending",
+  "applied",
+  "rejected",
+]);
+
+export type AiProposalStatus = z.infer<typeof aiProposalStatusSchema>;
+
+/**
+ * 저장되는 제안 — 아키텍처 §18의 `ai_proposals`
+ *
+ * 제안이 서버에 남아야 만든 시점과 승인 시점이 갈라질 수 있다. 외부 AI가
+ * 만든 제안을 사람이 나중에 브라우저에서 승인하는 흐름이 여기 기댄다.
+ */
+export const storedProposalSchema = aiProposalSchema.extend({
+  origin: aiProposalOriginSchema,
+  /** 제안을 만든 사용자. MCP는 토큰 소유자다. */
+  createdBy: z.string().min(1),
+  /** 화면에 보여줄 이름. 예: "Study AI · 목 모델", "Claude Code". */
+  createdByLabel: z.string().min(1),
+  status: aiProposalStatusSchema,
+  createdAt: z.string(),
+  resolvedAt: z.string().nullable(),
+  /** 승인·거절한 사용자. */
+  resolvedBy: z.string().nullable(),
+});
+
+export type StoredProposal = z.infer<typeof storedProposalSchema>;
+
 /** 답변에 붙는 출처. 없는 출처를 있는 것처럼 만들지 않는다(UI 명세 §13). */
 export const aiCitationSchema = z.object({
   label: z.string().min(1),

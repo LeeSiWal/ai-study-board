@@ -16,8 +16,8 @@ import { getVersion, loadDocument, storeDocument } from "./document-storage";
  * 이미 끝냈고, 여기서는 서명된 토큰만 검증한다.
  */
 
-const PORT = Number(process.env.COLLAB_PORT ?? 1234);
-const VERSION_PORT = Number(process.env.COLLAB_VERSION_PORT ?? 1235);
+const PORT = Number(process.env.COLLAB_PORT ?? 7172);
+const VERSION_PORT = Number(process.env.COLLAB_VERSION_PORT ?? 7173);
 
 /** onAuthenticate가 돌려준 값이 이후 훅의 context로 들어온다. */
 interface ConnectionContext {

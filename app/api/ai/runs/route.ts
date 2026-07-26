@@ -3,12 +3,9 @@ import { NextResponse } from "next/server";
 import { selectAdapter } from "@/lib/ai";
 import { currentUser } from "@/lib/auth";
 import { readContentVersion } from "@/lib/collab/version";
-import {
-  aiProposalSchema,
-  aiRunRequestSchema,
-  type AiProposal,
-} from "@/lib/contracts/ai";
+import { aiRunRequestSchema, storedProposalSchema } from "@/lib/contracts/ai";
 import { resolvePermissions } from "@/lib/store";
+import { saveProposal } from "@/lib/store/proposals";
 
 /**
  * POST /api/ai/runs
@@ -67,13 +64,27 @@ export async function POST(request: Request) {
         known.has(operation.blockId),
       );
 
-      const proposal: AiProposal = aiProposalSchema.parse({
-        id: crypto.randomUUID(),
-        resourceId: runRequest.resourceId,
-        baseVersion,
-        modelLabel: adapter.label,
-        summary: draft.summary,
-        operations,
+      // 제안은 서버에 남긴다. 브라우저 상태에만 두면 새로고침으로 사라지고,
+      // 외부에서 만든 제안과 한 곳에서 다룰 수도 없다.
+      const proposal = saveProposal({
+        proposal: storedProposalSchema
+          .omit({
+            status: true,
+            createdAt: true,
+            resolvedAt: true,
+            resolvedBy: true,
+          })
+          .parse({
+            id: crypto.randomUUID(),
+            resourceId: runRequest.resourceId,
+            baseVersion,
+            modelLabel: adapter.label,
+            summary: draft.summary,
+            operations,
+            origin: "workspace_ai",
+            createdBy: user.id,
+            createdByLabel: adapter.label,
+          }),
       });
 
       return NextResponse.json(proposal);

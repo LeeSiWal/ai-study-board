@@ -26,7 +26,7 @@ if (!("WebSocket" in globalThis)) {
 
 const RESOURCE_ID = "res-self-attention";
 const WORKSPACE_ID = "workspace-ai-papers";
-const URL = process.env.NEXT_PUBLIC_COLLAB_URL ?? "ws://127.0.0.1:1234";
+const URL = process.env.COLLAB_INTERNAL_URL ?? `ws://127.0.0.1:${process.env.COLLAB_PORT ?? 7172}`;
 const DOCUMENT_NAME = documentNameForResource(RESOURCE_ID);
 
 interface Client {

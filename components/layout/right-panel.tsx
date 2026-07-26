@@ -1,25 +1,14 @@
 "use client";
 
-import { Send, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
 import { AiPanel } from "@/components/ai/ai-panel";
-
-import { randomId } from "@/lib/id";
+import { CommentsPanel } from "@/components/comments/comments-panel";
 
 import { useShell } from "./shell-context";
-
-interface CommentThread {
-  id: string;
-  author: string;
-  body: string;
-  anchor: string;
-  resolved: boolean;
-  replies: string[];
-}
 
 
 export function RightPanel() {
@@ -84,72 +73,6 @@ function VersionPanel() {
         if (window.confirm(`${versions[selected][0]} 버전으로 복원할까요? 현재 상태는 새 버전으로 보관됩니다.`)) setRestored(true);
       }}>이 버전으로 복원</Button>
       {restored ? <p className="text-success mt-2 text-center text-xs">현재 상태를 보관하고 선택한 버전을 복원했습니다.</p> : null}
-    </div>
-  );
-}
-
-
-function CommentsPanel() {
-  const { editor } = useShell();
-  const [body, setBody] = useState("");
-  const [showResolved, setShowResolved] = useState(false);
-  const [threads, setThreads] = useState<CommentThread[]>([]);
-
-  function addComment() {
-    if (!body.trim()) return;
-    const node = editor?.state.selection.$from.parent;
-    setThreads((current) => [
-      ...current,
-      {
-        id: randomId(),
-        author: "시월",
-        body: body.trim(),
-        anchor: node?.textContent || "페이지 전체",
-        resolved: false,
-        replies: [],
-      },
-    ]);
-    setBody("");
-  }
-
-  const visible = threads.filter((thread) => showResolved || !thread.resolved);
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <label className="border-border flex items-center gap-2 border-b px-3 py-2 text-xs">
-        <input type="checkbox" checked={showResolved} onChange={(e) => setShowResolved(e.target.checked)} />
-        해결된 댓글 보기
-      </label>
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
-        {!visible.length ? (
-          <p className="text-text-secondary py-10 text-center text-xs">
-            아직 댓글이 없습니다. 문장에서 댓글을 남기거나 팀원과 의견을 나눠보세요.
-          </p>
-        ) : null}
-        {visible.map((thread) => (
-          <article key={thread.id} className="border-border rounded-xl border p-3">
-            <p className="font-medium">{thread.author}</p>
-            <p className="text-text-tertiary mt-1 truncate text-[11px]">연결 · {thread.anchor}</p>
-            <p className="mt-2">{thread.body}</p>
-            {thread.replies.map((reply, index) => <p key={index} className="bg-surface-subtle mt-2 rounded p-2 text-xs">답글 · {reply}</p>)}
-            <div className="mt-3 flex gap-2">
-              <Button size="sm" variant="ghost" onClick={() => {
-                const reply = window.prompt("답글을 입력하세요.");
-                if (reply?.trim()) setThreads((all) => all.map((item) => item.id === thread.id ? { ...item, replies: [...item.replies, reply.trim()] } : item));
-              }}>답글</Button>
-              <Button size="sm" variant="ghost" onClick={() => setThreads((all) => all.map((item) => item.id === thread.id ? { ...item, resolved: !item.resolved } : item))}>
-                {thread.resolved ? "다시 열기" : "해결"}
-              </Button>
-            </div>
-          </article>
-        ))}
-      </div>
-      <div className="border-border flex gap-2 border-t p-3">
-        <Input value={body} onChange={(event) => setBody(event.target.value)} placeholder="댓글을 입력하세요" onKeyDown={(event) => {
-          if (event.key === "Enter") addComment();
-        }} />
-        <Button size="icon" onClick={addComment} aria-label="댓글 추가"><Send className="size-4" /></Button>
-      </div>
     </div>
   );
 }

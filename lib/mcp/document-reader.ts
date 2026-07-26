@@ -25,8 +25,16 @@ if (!("WebSocket" in globalThis)) {
 
 const CONNECT_TIMEOUT_MS = 10_000;
 
+/**
+ * 서버 간 연결이라 항상 루프백이다.
+ *
+ * 브라우저가 쓰는 NEXT_PUBLIC_COLLAB_URL을 쓰면 안 된다. 그건 터널 주소일 수
+ * 있어서 굳이 밖으로 나갔다 돌아온다. 포트는 협업 서버가 실제로 듣는 값을
+ * 그대로 따라간다 — 하드코딩하면 포트를 옮길 때 조용히 끊긴다.
+ */
 function collaborationUrl(): string {
-  return process.env.COLLAB_INTERNAL_URL ?? "ws://127.0.0.1:1234";
+  const port = process.env.COLLAB_PORT ?? "7172";
+  return process.env.COLLAB_INTERNAL_URL ?? `ws://127.0.0.1:${port}`;
 }
 
 /**

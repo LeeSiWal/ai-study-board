@@ -12,7 +12,7 @@ import { documentNameForResource } from "../contracts/collaboration";
 
 /** 버전 조회는 협업 서버의 별도 포트에서 받는다. 서버 간 호출 전용이다. */
 function versionServiceUrl(): string {
-  const port = process.env.COLLAB_VERSION_PORT ?? "1235";
+  const port = process.env.COLLAB_VERSION_PORT ?? "7173";
   return `http://127.0.0.1:${port}`;
 }
 

@@ -46,6 +46,7 @@ export async function POST(request: Request) {
   const server = buildMcpServer({
     user: authenticated.user,
     workspaceId: authenticated.record.workspaceId,
+    clientLabel: authenticated.record.name,
   });
 
   const transport = new OneShotTransport();
