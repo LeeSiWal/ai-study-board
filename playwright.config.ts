@@ -28,9 +28,19 @@ export default defineConfig({
   workers: 1,
   reporter: [["list"]],
 
+  /**
+   * 원격 대상일 때는 단언 대기를 늘린다.
+   *
+   * 터널을 거치면 모든 동작이 Cloudflare 엣지를 왕복한다. 로컬 기준으로 잡은
+   * 5초 기본값으로는 제품이 멀쩡해도 실패한다. 실제로 제목 저장과 포스트잇
+   * 테스트가 로컬 3.9초 통과 / 터널 실패로 갈렸다.
+   */
+  expect: { timeout: process.env.E2E_BASE_URL ? 20_000 : 5_000 },
+
   use: {
-    // 다른 기기에서 접속했을 때를 재현하려면 E2E_BASE_URL로 LAN 주소를 준다.
+    // LAN이나 터널 접속을 재현하려면 E2E_BASE_URL에 그 주소를 준다.
     baseURL: process.env.E2E_BASE_URL ?? `http://127.0.0.1:${WEB_PORT}`,
+    actionTimeout: process.env.E2E_BASE_URL ? 20_000 : 0,
     trace: "retain-on-failure",
   },
 

@@ -13,7 +13,8 @@
     "verify:collab": "tsx --env-file=.env.local scripts/verify-collab.ts",
     "test:e2e": "playwright test",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "check": "tsx --env-file=.env.local scripts/check-endpoints.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
