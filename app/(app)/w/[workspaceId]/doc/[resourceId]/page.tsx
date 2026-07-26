@@ -25,7 +25,7 @@ export default async function DocumentPage({
   if (!user) redirect("/login");
 
   const { workspaceId, resourceId } = await params;
-  const resource = findResourceById(resourceId);
+  const resource = await findResourceById(resourceId);
 
   if (!resource || resource.type !== "DOCUMENT") {
     return (
@@ -36,7 +36,7 @@ export default async function DocumentPage({
     );
   }
 
-  const permissions = resolvePermissions(resourceId, user.id);
+  const permissions = await resolvePermissions(resourceId, user.id);
 
   if (permissions.length === 0) {
     return (
@@ -48,7 +48,7 @@ export default async function DocumentPage({
   }
 
   const path = findResourcePath(
-    buildResourceTree(listResources(workspaceId)),
+    buildResourceTree(await listResources(workspaceId)),
     resourceId,
   );
 

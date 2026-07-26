@@ -65,19 +65,19 @@ const server = new Server({
   },
 
   async onLoadDocument({ documentName, document }) {
-    loadDocument(documentName, document);
+    await loadDocument(documentName, document);
     return document;
   },
 
   async onStoreDocument({ documentName, document }) {
-    const version = storeDocument(documentName, document);
+    const version = await storeDocument(documentName, document);
     console.log(`[collab] 저장 ${documentName} → version ${version}`);
   },
 
   async onDisconnect({ documentName, context }) {
     const { displayName } = context as ConnectionContext;
     console.log(
-      `[collab] 해제 ${displayName} ← ${documentName} (version ${getVersion(documentName)})`,
+      `[collab] 해제 ${displayName} ← ${documentName} (version ${await getVersion(documentName)})`,
     );
   },
 
@@ -95,7 +95,7 @@ const server = new Server({
  *
  * 서버 간 호출이므로 협업 토큰 비밀키를 공유 비밀로 써서 외부 접근을 막는다.
  */
-const versionServer = createServer((request, response) => {
+const versionServer = createServer(async (request, response) => {
   const url = new URL(request.url ?? "/", "http://127.0.0.1");
   const match = /^\/documents\/(.+)\/version$/.exec(url.pathname);
 
@@ -115,7 +115,7 @@ const versionServer = createServer((request, response) => {
 
   response.writeHead(200, { "content-type": "application/json" });
   response.end(
-    JSON.stringify({ documentName, version: getVersion(documentName) }),
+    JSON.stringify({ documentName, version: await getVersion(documentName) }),
   );
 });
 

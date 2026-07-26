@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     return unauthorized("Authorization 헤더에 Bearer 토큰이 필요합니다.");
   }
 
-  const authenticated = authenticateToken(token);
+  const authenticated = await authenticateToken(token);
 
   if (!authenticated) {
     return unauthorized("토큰이 유효하지 않습니다.");

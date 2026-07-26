@@ -22,7 +22,7 @@ export async function PATCH(
   }
 
   const { commentId } = await params;
-  const comment = findComment(commentId);
+  const comment = await findComment(commentId);
 
   if (!comment) {
     return NextResponse.json(
@@ -31,7 +31,7 @@ export async function PATCH(
     );
   }
 
-  if (!resolvePermissions(comment.resourceId, user.id).includes("comment")) {
+  if (!(await resolvePermissions(comment.resourceId, user.id)).includes("comment")) {
     return NextResponse.json(
       { error: "이 댓글을 바꿀 권한이 없습니다." },
       { status: 403 },
@@ -49,7 +49,7 @@ export async function PATCH(
     );
   }
 
-  const updated = setCommentResolved(
+  const updated = await setCommentResolved(
     commentId,
     parsed.data.action === "resolve",
   );

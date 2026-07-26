@@ -3,6 +3,7 @@
 2026-07-26 기준 프론트엔드 프로토타입 Phase 0~5를 구현했다.
 
 ```bash
+npm run db:up          # PostgreSQL (첫 실행 시 db:push, db:seed도)
 npm run dev            # Next.js 앱 + 협업 서버
 npm run verify:collab  # 브라우저 없이 협업 계층 검증
 npm run test:e2e       # Playwright 브라우저 통합 테스트

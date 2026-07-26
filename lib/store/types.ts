@@ -1,9 +1,12 @@
 import type { CollaborationPermission } from "../contracts/collaboration";
+import type { schema } from "../db";
 
 /**
- * 일반 업무 데이터의 타입.
+ * 일반 업무 데이터의 타입 — 아키텍처 §18
  *
- * 아키텍처 §18의 모델을 프로토타입에 필요한 만큼만 옮긴 것이다.
+ * 테이블 정의에서 끌어온다. 손으로 인터페이스를 또 쓰면 스키마와 어긋날 때
+ * 어느 쪽이 맞는지 알 수 없게 된다.
+ *
  * 문서 **본문**은 여기 없다. 본문은 CRDT 경계에 속한다.
  */
 
@@ -16,48 +19,21 @@ export type ResourceType =
   | "FOLDER"
   | "LINK";
 
-export interface User {
-  id: string;
-  email: string;
-  displayName: string;
-  /** 프로토타입 전용. 실제 서비스라면 해시를 저장한다. */
-  password: string;
-  /** 협업 커서 색 */
-  cursorColor: string;
-}
+export type User = typeof schema.users.$inferSelect;
+export type Workspace = typeof schema.workspaces.$inferSelect;
+export type DocumentMeta = typeof schema.documents.$inferSelect;
 
-export interface Workspace {
-  id: string;
-  name: string;
-  description: string;
-  ownerUserId: string;
-}
-
-export interface WorkspaceMember {
-  workspaceId: string;
-  userId: string;
-  role: WorkspaceRole;
-}
-
-export interface Resource {
-  id: string;
-  workspaceId: string;
-  parentId: string | null;
+/** 문자열 컬럼을 좁혀 쓴다. 데이터베이스는 text지만 코드에서는 좁은 편이 낫다. */
+export type Resource = Omit<typeof schema.resources.$inferSelect, "type"> & {
   type: ResourceType;
-  title: string;
-  icon: string | null;
-  sortOrder: number;
-  createdBy: string;
-}
+};
 
-/**
- * 문서 메타데이터. 본문은 협업 서버의 Yjs 문서에 있다.
- * 제목을 여기 두는 것은 아키텍처 §6의 결정을 따른 것이다.
- */
-export interface DocumentMeta {
-  resourceId: string;
-  collaborationKey: string;
-}
+export type WorkspaceMember = Omit<
+  typeof schema.workspaceMembers.$inferSelect,
+  "role"
+> & {
+  role: WorkspaceRole;
+};
 
 /** 역할이 기본으로 갖는 자원 권한. 자원별 권한은 이후 단계에서 덧붙인다. */
 export const PERMISSIONS_BY_ROLE: Record<

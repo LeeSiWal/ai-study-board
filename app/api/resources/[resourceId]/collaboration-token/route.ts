@@ -25,7 +25,7 @@ export async function POST(
   }
 
   const { resourceId } = await params;
-  const resource = findResourceById(resourceId);
+  const resource = await findResourceById(resourceId);
 
   if (!resource) {
     return NextResponse.json(
@@ -34,7 +34,7 @@ export async function POST(
     );
   }
 
-  const permissions = resolvePermissions(resourceId, user.id);
+  const permissions = await resolvePermissions(resourceId, user.id);
 
   if (permissions.length === 0) {
     return NextResponse.json(

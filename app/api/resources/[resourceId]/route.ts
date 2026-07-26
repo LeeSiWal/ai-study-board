@@ -23,7 +23,7 @@ export async function PATCH(
   }
 
   const { resourceId } = await params;
-  const resource = findResourceById(resourceId);
+  const resource = await findResourceById(resourceId);
   if (!resource) {
     return NextResponse.json(
       { error: "리소스를 찾을 수 없습니다." },
@@ -31,7 +31,7 @@ export async function PATCH(
     );
   }
 
-  if (!resolvePermissions(resourceId, user.id).includes("edit")) {
+  if (!(await resolvePermissions(resourceId, user.id)).includes("edit")) {
     return NextResponse.json(
       { error: "제목을 편집할 권한이 없습니다." },
       { status: 403 },
@@ -47,6 +47,6 @@ export async function PATCH(
     );
   }
 
-  const updated = updateResourceTitle(resourceId, parsed.data.title);
+  const updated = await updateResourceTitle(resourceId, parsed.data.title);
   return NextResponse.json({ title: updated?.title });
 }

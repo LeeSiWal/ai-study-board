@@ -1,10 +1,14 @@
-import type {
-  DocumentMeta,
-  Resource,
-  User,
-  Workspace,
-  WorkspaceMember,
-} from "./types";
+import type { schema } from "../db";
+
+/**
+ * 삽입용 형태를 쓴다. 조회 결과 타입(`$inferSelect`)에는 데이터베이스가
+ * 채우는 createdAt 같은 컬럼이 들어 있어 시드 리터럴과 맞지 않는다.
+ */
+type UserSeed = typeof schema.users.$inferInsert;
+type WorkspaceSeed = typeof schema.workspaces.$inferInsert;
+type MemberSeed = typeof schema.workspaceMembers.$inferInsert;
+type ResourceSeed = typeof schema.resources.$inferInsert;
+type DocumentSeed = typeof schema.documents.$inferInsert;
 
 /**
  * 시드 데이터.
@@ -16,7 +20,7 @@ import type {
 /** 프로토타입 공용 비밀번호. 모든 시드 사용자가 같은 값을 쓴다. */
 export const SEED_PASSWORD = "study1234";
 
-export const SEED_USERS: User[] = [
+export const SEED_USERS: UserSeed[] = [
   {
     id: "user-siwol",
     email: "siwol@example.com",
@@ -61,14 +65,14 @@ export const SEED_USERS: User[] = [
   },
 ];
 
-export const SEED_WORKSPACE: Workspace = {
+export const SEED_WORKSPACE: WorkspaceSeed = {
   id: "workspace-ai-papers",
   name: "AI 논문 스터디",
   description: "매주 논문 한 편을 함께 읽고 정리합니다.",
   ownerUserId: "user-siwol",
 };
 
-export const SEED_MEMBERS: WorkspaceMember[] = [
+export const SEED_MEMBERS: MemberSeed[] = [
   { workspaceId: SEED_WORKSPACE.id, userId: "user-siwol", role: "OWNER" },
   { workspaceId: SEED_WORKSPACE.id, userId: "user-minji", role: "ADMIN" },
   { workspaceId: SEED_WORKSPACE.id, userId: "user-hyunwoo", role: "MEMBER" },
@@ -91,7 +95,7 @@ export const SEED_MEMBERS: WorkspaceMember[] = [
  * │  └─ 예상 질문
  * └─ 최종 프로젝트
  */
-export const SEED_RESOURCES: Resource[] = [
+export const SEED_RESOURCES: ResourceSeed[] = [
   {
     id: "res-notice",
     workspaceId: SEED_WORKSPACE.id,
@@ -187,7 +191,7 @@ export const SEED_RESOURCES: Resource[] = [
 /** Phase 0에서 동시 편집을 시연하는 문서 (UI 명세 §28의 "현재 문서") */
 export const DEMO_DOCUMENT_ID = "res-self-attention";
 
-export const SEED_DOCUMENTS: DocumentMeta[] = SEED_RESOURCES.filter(
+export const SEED_DOCUMENTS: DocumentSeed[] = SEED_RESOURCES.filter(
   (resource) => resource.type === "DOCUMENT",
 ).map((resource) => ({
   resourceId: resource.id,

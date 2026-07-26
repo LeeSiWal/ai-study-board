@@ -1,11 +1,7 @@
+import { and, asc, eq } from "drizzle-orm";
+
 import type { CollaborationPermission } from "../contracts/collaboration";
-import {
-  SEED_DOCUMENTS,
-  SEED_MEMBERS,
-  SEED_RESOURCES,
-  SEED_USERS,
-  SEED_WORKSPACE,
-} from "./seed";
+import { db, schema } from "../db";
 import {
   PERMISSIONS_BY_ROLE,
   type DocumentMeta,
@@ -13,133 +9,127 @@ import {
   type User,
   type Workspace,
   type WorkspaceMember,
+  type WorkspaceRole,
 } from "./types";
 
 /**
- * 인메모리 스토어.
+ * 일반 업무 데이터 — 아키텍처 §3.1
  *
- * 아키텍처가 PostgreSQL에 두기로 한 "일반 업무 데이터"의 자리다.
- * 나중에 실제 데이터베이스로 바꿀 때 이 모듈의 함수 시그니처만 유지하면
- * 호출하는 쪽은 손대지 않아도 된다.
+ * PostgreSQL이 소유한다. 문서 본문은 여기 없다. 본문은 CRDT에 있고 그
+ * 스냅샷만 협업 서버가 `collaboration_documents`에 넣는다.
  *
- * 개발 중 HMR이 모듈을 다시 평가해도 데이터가 초기화되지 않도록
- * globalThis에 붙여 둔다.
+ * 이 모듈의 함수 시그니처는 인메모리 시절과 같다. 반환 타입만 Promise로
+ * 바뀌었다. 호출하는 쪽은 await만 붙이면 된다.
  */
 
-interface StoreData {
-  users: User[];
-  workspace: Workspace;
-  members: WorkspaceMember[];
-  resources: Resource[];
-  documents: DocumentMeta[];
+export function findUserByEmail(email: string): Promise<User | null> {
+  return db.query.users
+    .findFirst({ where: eq(schema.users.email, email.trim().toLowerCase()) })
+    .then((row) => row ?? null);
 }
 
-const STORE_KEY = Symbol.for("ai-study-board.store");
+export function findUserById(userId: string): Promise<User | null> {
+  return db.query.users
+    .findFirst({ where: eq(schema.users.id, userId) })
+    .then((row) => row ?? null);
+}
 
-type GlobalWithStore = typeof globalThis & {
-  [STORE_KEY]?: StoreData;
-};
+export async function getWorkspace(): Promise<Workspace> {
+  const workspace = await db.query.workspaces.findFirst();
 
-function getStore(): StoreData {
-  const scope = globalThis as GlobalWithStore;
-
-  if (!scope[STORE_KEY]) {
-    scope[STORE_KEY] = {
-      users: [...SEED_USERS],
-      workspace: { ...SEED_WORKSPACE },
-      members: [...SEED_MEMBERS],
-      resources: [...SEED_RESOURCES],
-      documents: [...SEED_DOCUMENTS],
-    };
+  if (!workspace) {
+    throw new Error(
+      "워크스페이스가 없습니다. npm run db:seed를 먼저 실행하세요.",
+    );
   }
 
-  return scope[STORE_KEY];
+  return workspace;
 }
 
-export function findUserByEmail(email: string): User | null {
-  const normalized = email.trim().toLowerCase();
-  return (
-    getStore().users.find((user) => user.email.toLowerCase() === normalized) ??
-    null
-  );
+export function findResourceById(resourceId: string): Promise<Resource | null> {
+  return db.query.resources
+    .findFirst({ where: eq(schema.resources.id, resourceId) })
+    .then((row) => (row as Resource | undefined) ?? null);
 }
 
-export function findUserById(userId: string): User | null {
-  return getStore().users.find((user) => user.id === userId) ?? null;
+export function listResources(workspaceId: string): Promise<Resource[]> {
+  return db.query.resources
+    .findMany({
+      where: eq(schema.resources.workspaceId, workspaceId),
+      orderBy: [asc(schema.resources.sortOrder)],
+    })
+    .then((rows) => rows as Resource[]);
 }
 
-export function getWorkspace(): Workspace {
-  return getStore().workspace;
+export function findDocumentMeta(
+  resourceId: string,
+): Promise<DocumentMeta | null> {
+  return db.query.documents
+    .findFirst({ where: eq(schema.documents.resourceId, resourceId) })
+    .then((row) => row ?? null);
 }
 
-export function findResourceById(resourceId: string): Resource | null {
-  return (
-    getStore().resources.find((resource) => resource.id === resourceId) ?? null
-  );
-}
-
-export function listResources(workspaceId: string): Resource[] {
-  return getStore()
-    .resources.filter((resource) => resource.workspaceId === workspaceId)
-    .sort((a, b) => a.sortOrder - b.sortOrder);
-}
-
-export function findDocumentMeta(resourceId: string): DocumentMeta | null {
-  return (
-    getStore().documents.find(
-      (document) => document.resourceId === resourceId,
-    ) ?? null
-  );
-}
-
-export function updateResourceTitle(
+export async function updateResourceTitle(
   resourceId: string,
   title: string,
-): Resource | null {
-  const resource = getStore().resources.find(
-    (candidate) => candidate.id === resourceId,
-  );
-  if (!resource) return null;
+): Promise<Resource | null> {
+  const [updated] = await db
+    .update(schema.resources)
+    .set({ title, updatedAt: new Date() })
+    .where(eq(schema.resources.id, resourceId))
+    .returning();
 
-  resource.title = title;
-  return resource;
+  return (updated as Resource | undefined) ?? null;
 }
 
 export function findMembership(
   workspaceId: string,
   userId: string,
-): WorkspaceMember | null {
-  return (
-    getStore().members.find(
-      (member) =>
-        member.workspaceId === workspaceId && member.userId === userId,
-    ) ?? null
-  );
+): Promise<WorkspaceMember | null> {
+  return db.query.workspaceMembers
+    .findFirst({
+      where: and(
+        eq(schema.workspaceMembers.workspaceId, workspaceId),
+        eq(schema.workspaceMembers.userId, userId),
+      ),
+    })
+    .then((row) => (row ? { ...row, role: row.role as WorkspaceRole } : null));
 }
 
-export function listMembersWithUsers(workspaceId: string) {
-  return getStore().members
-    .filter((member) => member.workspaceId === workspaceId)
-    .map((member) => ({ ...member, user: findUserById(member.userId)! }));
+export async function listMembersWithUsers(workspaceId: string) {
+  const rows = await db
+    .select()
+    .from(schema.workspaceMembers)
+    .innerJoin(
+      schema.users,
+      eq(schema.workspaceMembers.userId, schema.users.id),
+    )
+    .where(eq(schema.workspaceMembers.workspaceId, workspaceId));
+
+  return rows.map((row) => ({
+    ...row.workspace_members,
+    role: row.workspace_members.role as WorkspaceRole,
+    user: row.users,
+  }));
 }
 
 /**
- * 자원에 대한 사용자 권한을 판정한다.
+ * 자원에 대한 사용자 권한을 판정한다 — §17
  *
- * 아키텍처 §17은 역할만으로 권한을 결정하지 말라고 한다. 지금은 역할 기반
- * 기본값만 구현하고, 자원별 권한과 공유 링크 정책은 이후 단계에서 이 함수
- * 안에 덧붙인다. 호출하는 쪽은 바뀌지 않는다.
+ * 역할만으로 모든 권한을 결정하지 않는다는 것이 설계다. 지금은 역할 기반
+ * 기본값만 구현하고, 자원별 권한과 공유 링크 정책은 이 함수 안에 덧붙인다.
+ * 호출하는 쪽은 바뀌지 않는다.
  *
  * 접근 자체가 불가하면 빈 배열을 돌려준다.
  */
-export function resolvePermissions(
+export async function resolvePermissions(
   resourceId: string,
   userId: string,
-): CollaborationPermission[] {
-  const resource = findResourceById(resourceId);
+): Promise<CollaborationPermission[]> {
+  const resource = await findResourceById(resourceId);
   if (!resource) return [];
 
-  const membership = findMembership(resource.workspaceId, userId);
+  const membership = await findMembership(resource.workspaceId, userId);
   if (!membership) return [];
 
   return PERMISSIONS_BY_ROLE[membership.role];

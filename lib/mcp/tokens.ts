@@ -1,5 +1,9 @@
 import { createHash, randomBytes } from "node:crypto";
 
+import { and, eq, isNull } from "drizzle-orm";
+
+import { db, schema } from "../db";
+import { randomId } from "../id";
 import { findUserById, getWorkspace } from "../store";
 import type { User } from "../store/types";
 
@@ -9,34 +13,11 @@ import type { User } from "../store/types";
  * MCP 클라이언트는 브라우저 세션 쿠키를 쓸 수 없다. 사용자가 설정 화면에서
  * 토큰을 발급받아 클라이언트 설정에 넣는다.
  *
- * 원문은 발급 시 한 번만 보여주고 해시만 저장한다. 저장소가 새더라도 토큰
- * 자체는 복원되지 않는다.
+ * 원문은 발급 시 한 번만 보여주고 해시만 저장한다. 데이터베이스가 새더라도
+ * 토큰 자체는 복원되지 않는다.
  */
 
-export interface McpAccessToken {
-  id: string;
-  ownerUserId: string;
-  workspaceId: string;
-  name: string;
-  tokenHash: string;
-  /** 원문 앞부분. 목록에서 어느 토큰인지 알아보게 한다. */
-  hint: string;
-  createdAt: Date;
-  lastUsedAt: Date | null;
-  revokedAt: Date | null;
-}
-
-const TOKENS_KEY = Symbol.for("ai-study-board.mcp-tokens");
-
-type GlobalWithTokens = typeof globalThis & {
-  [TOKENS_KEY]?: McpAccessToken[];
-};
-
-function store(): McpAccessToken[] {
-  const scope = globalThis as GlobalWithTokens;
-  scope[TOKENS_KEY] ??= [];
-  return scope[TOKENS_KEY];
-}
+export type McpAccessToken = typeof schema.mcpAccessTokens.$inferSelect;
 
 function hash(token: string): string {
   return createHash("sha256").update(token).digest("hex");
@@ -48,58 +29,81 @@ export interface IssuedToken {
   token: string;
 }
 
-export function issueToken(ownerUserId: string, name: string): IssuedToken {
+export async function issueToken(
+  ownerUserId: string,
+  name: string,
+): Promise<IssuedToken> {
   const token = `mcp_${randomBytes(24).toString("base64url")}`;
+  const workspace = await getWorkspace();
 
-  const record: McpAccessToken = {
-    id: crypto.randomUUID(),
-    ownerUserId,
-    workspaceId: getWorkspace().id,
-    name,
-    tokenHash: hash(token),
-    hint: `${token.slice(0, 8)}…${token.slice(-4)}`,
-    createdAt: new Date(),
-    lastUsedAt: null,
-    revokedAt: null,
-  };
+  const [record] = await db
+    .insert(schema.mcpAccessTokens)
+    .values({
+      id: randomId(),
+      ownerUserId,
+      workspaceId: workspace.id,
+      name,
+      tokenHash: hash(token),
+      hint: `${token.slice(0, 8)}…${token.slice(-4)}`,
+    })
+    .returning();
 
-  store().push(record);
   return { record, token };
 }
 
-export function listTokens(ownerUserId: string): McpAccessToken[] {
-  return store().filter(
-    (record) => record.ownerUserId === ownerUserId && !record.revokedAt,
-  );
+export function listTokens(ownerUserId: string): Promise<McpAccessToken[]> {
+  return db.query.mcpAccessTokens.findMany({
+    where: and(
+      eq(schema.mcpAccessTokens.ownerUserId, ownerUserId),
+      isNull(schema.mcpAccessTokens.revokedAt),
+    ),
+  });
 }
 
-export function revokeToken(ownerUserId: string, id: string): boolean {
-  const record = store().find(
-    (candidate) => candidate.id === id && candidate.ownerUserId === ownerUserId,
-  );
+export async function revokeToken(
+  ownerUserId: string,
+  id: string,
+): Promise<boolean> {
+  const [row] = await db
+    .update(schema.mcpAccessTokens)
+    .set({ revokedAt: new Date() })
+    .where(
+      and(
+        eq(schema.mcpAccessTokens.id, id),
+        eq(schema.mcpAccessTokens.ownerUserId, ownerUserId),
+        isNull(schema.mcpAccessTokens.revokedAt),
+      ),
+    )
+    .returning();
 
-  if (!record) return false;
-
-  record.revokedAt = new Date();
-  return true;
+  return !!row;
 }
 
 /**
  * 토큰으로 소유자를 찾는다. 권한은 소유자의 워크스페이스 권한을 넘지 못한다.
  * 유효하지 않으면 null.
  */
-export function authenticateToken(
+export async function authenticateToken(
   token: string,
-): { user: User; record: McpAccessToken } | null {
-  const digest = hash(token);
-  const record = store().find((candidate) => candidate.tokenHash === digest);
+): Promise<{ user: User; record: McpAccessToken } | null> {
+  const record = await db.query.mcpAccessTokens.findFirst({
+    where: and(
+      eq(schema.mcpAccessTokens.tokenHash, hash(token)),
+      isNull(schema.mcpAccessTokens.revokedAt),
+    ),
+  });
 
-  if (!record || record.revokedAt) return null;
+  if (!record) return null;
 
-  const user = findUserById(record.ownerUserId);
+  const user = await findUserById(record.ownerUserId);
   if (!user) return null;
 
-  record.lastUsedAt = new Date();
+  // 마지막 사용 시각은 목록에서 어느 토큰이 살아 있는지 보는 데 쓴다.
+  await db
+    .update(schema.mcpAccessTokens)
+    .set({ lastUsedAt: new Date() })
+    .where(eq(schema.mcpAccessTokens.id, record.id));
+
   return { user, record };
 }
 

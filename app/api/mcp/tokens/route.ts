@@ -21,7 +21,7 @@ export async function GET() {
   }
 
   return NextResponse.json({
-    tokens: listTokens(user.id).map((record) => ({
+    tokens: (await listTokens(user.id)).map((record) => ({
       id: record.id,
       name: record.name,
       hint: record.hint,
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { record, token } = issueToken(user.id, parsed.data.name);
+  const { record, token } = await issueToken(user.id, parsed.data.name);
 
   return NextResponse.json({
     id: record.id,
@@ -67,7 +67,7 @@ export async function DELETE(request: Request) {
 
   const id = new URL(request.url).searchParams.get("id");
 
-  if (!id || !revokeToken(user.id, id)) {
+  if (!id || !await revokeToken(user.id, id)) {
     return NextResponse.json(
       { error: "토큰을 찾을 수 없습니다." },
       { status: 404 },

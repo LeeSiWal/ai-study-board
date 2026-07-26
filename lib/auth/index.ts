@@ -24,7 +24,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         email: { label: "이메일", type: "email" },
         password: { label: "비밀번호", type: "password" },
       },
-      authorize(credentials) {
+      // Auth.js의 authorize는 Awaitable을 받는다. 데이터베이스 조회를
+      // 그대로 기다릴 수 있다.
+      async authorize(credentials) {
         const email = credentials?.email;
         const password = credentials?.password;
 
@@ -32,7 +34,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        const user = findUserByEmail(email);
+        const user = await findUserByEmail(email);
         if (!user || user.password !== password) return null;
 
         return { id: user.id, email: user.email, name: user.displayName };

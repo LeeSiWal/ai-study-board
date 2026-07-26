@@ -24,14 +24,14 @@ export async function GET(
 
   const { resourceId } = await params;
 
-  if (resolvePermissions(resourceId, user.id).length === 0) {
+  if ((await resolvePermissions(resourceId, user.id)).length === 0) {
     return NextResponse.json(
       { error: "이 페이지에 접근할 권한이 없습니다." },
       { status: 403 },
     );
   }
 
-  return NextResponse.json({ comments: listComments(resourceId) });
+  return NextResponse.json({ comments: await listComments(resourceId) });
 }
 
 export async function POST(
@@ -46,7 +46,7 @@ export async function POST(
 
   const { resourceId } = await params;
 
-  if (!resolvePermissions(resourceId, user.id).includes("comment")) {
+  if (!(await resolvePermissions(resourceId, user.id)).includes("comment")) {
     return NextResponse.json(
       { error: "이 페이지에 댓글을 달 권한이 없습니다." },
       { status: 403 },
@@ -64,6 +64,6 @@ export async function POST(
     );
   }
 
-  const comment = createComment(resourceId, user, parsed.data);
+  const comment = await createComment(resourceId, user, parsed.data);
   return NextResponse.json({ comment });
 }

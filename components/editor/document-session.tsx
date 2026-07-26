@@ -42,22 +42,31 @@ interface DocumentSessionValue {
 
 const DocumentSessionContext = createContext<DocumentSessionValue | null>(null);
 
+/** 루프백과 사설 대역. 여기서 열었다면 협업 서버도 같은 망에 있다. */
+const LOCAL_HOST = /^(localhost|127\.|0\.0\.0\.0$|\[?::1\]?$|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/;
+
 /**
  * 협업 서버 주소.
  *
- * 기본값을 127.0.0.1로 고정하면 브라우저가 자기 자신의 루프백을 찾는다.
- * 개발 서버를 다른 기기에서 열면 연결이 영영 안 된다. 그래서 지금 페이지를
- * 받아온 호스트를 그대로 쓰고, 배포처럼 협업 서버가 다른 곳에 있을 때만
- * NEXT_PUBLIC_COLLAB_URL로 덮어쓴다.
+ * 두 가지를 동시에 만족해야 한다.
+ *
+ * 1. 다른 기기에서 LAN으로 열어도 붙어야 한다. 그래서 127.0.0.1로 고정하지
+ *    않고 페이지를 받아온 호스트를 쓴다.
+ * 2. 터널로 열면 협업 서버도 터널 주소여야 한다. HTTPS 페이지에서 ws://는
+ *    혼합 콘텐츠로 차단되고, 포트를 붙여도 터널을 지나가지 않는다.
+ *
+ * `NEXT_PUBLIC_COLLAB_URL`을 무조건 쓰면 1번이 깨진다. 로컬에서 열었는데도
+ * 터널을 한 바퀴 돌게 되고, 터널이 내려가 있으면 아예 못 붙는다. 그래서
+ * 로컬 주소로 접속했을 때는 덮어쓰기를 무시한다.
  */
 function collaborationUrl(): string {
+  const { hostname, protocol } = window.location;
   const configured = process.env.NEXT_PUBLIC_COLLAB_URL;
-  if (configured) return configured;
+
+  if (configured && !LOCAL_HOST.test(hostname)) return configured;
 
   const port = process.env.NEXT_PUBLIC_COLLAB_PORT ?? "7172";
-  const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-
-  return `${protocol}://${window.location.hostname}:${port}`;
+  return `${protocol === "https:" ? "wss" : "ws"}://${hostname}:${port}`;
 }
 
 export function useDocumentSession(): DocumentSessionValue {

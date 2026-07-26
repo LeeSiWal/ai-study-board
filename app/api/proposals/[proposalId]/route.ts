@@ -36,7 +36,7 @@ export async function POST(
   }
 
   const { proposalId } = await params;
-  const proposal = findProposal(proposalId);
+  const proposal = await findProposal(proposalId);
 
   if (!proposal) {
     return NextResponse.json(
@@ -45,7 +45,7 @@ export async function POST(
     );
   }
 
-  const permissions = resolvePermissions(proposal.resourceId, user.id);
+  const permissions = await resolvePermissions(proposal.resourceId, user.id);
 
   if (!permissions.includes("edit")) {
     return NextResponse.json(
@@ -62,7 +62,7 @@ export async function POST(
   }
 
   if (parsed.data.action === "reject") {
-    resolveProposal(proposalId, "rejected", user.id);
+    await resolveProposal(proposalId, "rejected", user.id);
     return NextResponse.json({ ok: true });
   }
 
@@ -87,7 +87,7 @@ export async function POST(
     );
   }
 
-  const claimed = resolveProposal(proposalId, "applied", user.id);
+  const claimed = await resolveProposal(proposalId, "applied", user.id);
 
   if (!claimed) {
     return NextResponse.json(

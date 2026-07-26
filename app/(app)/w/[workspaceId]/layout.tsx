@@ -22,12 +22,12 @@ export default async function WorkspaceLayout({
   if (!user) redirect("/login");
 
   const { workspaceId } = await params;
-  const workspace = getWorkspace();
+  const workspace = await getWorkspace();
 
   if (workspace.id !== workspaceId) notFound();
-  if (!findMembership(workspaceId, user.id)) notFound();
+  if (!await findMembership(workspaceId, user.id)) notFound();
 
-  const tree = buildResourceTree(listResources(workspaceId));
+  const tree = buildResourceTree(await listResources(workspaceId));
 
   async function signOutAction() {
     "use server";

@@ -33,7 +33,7 @@ export async function POST(request: Request) {
   }
 
   const runRequest = parsed.data;
-  const permissions = resolvePermissions(runRequest.resourceId, user.id);
+  const permissions = await resolvePermissions(runRequest.resourceId, user.id);
 
   if (permissions.length === 0) {
     return NextResponse.json(
@@ -66,7 +66,7 @@ export async function POST(request: Request) {
 
       // 제안은 서버에 남긴다. 브라우저 상태에만 두면 새로고침으로 사라지고,
       // 외부에서 만든 제안과 한 곳에서 다룰 수도 없다.
-      const proposal = saveProposal({
+      const proposal = await saveProposal({
         proposal: storedProposalSchema
           .omit({
             status: true,

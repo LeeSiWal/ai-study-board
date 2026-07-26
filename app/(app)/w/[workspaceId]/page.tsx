@@ -8,7 +8,7 @@ import { listResources } from "@/lib/store";
 export default async function WorkspaceHome({ params }: { params: Promise<{ workspaceId: string }> }) {
   const user = await currentUser();
   const { workspaceId } = await params;
-  const resources = listResources(workspaceId).filter((item) => item.type !== "FOLDER").slice(0, 6);
+  const resources = (await listResources(workspaceId)).filter((item) => item.type !== "FOLDER").slice(0, 6);
   const route = (type: string) => type === "DOCUMENT" ? "doc" : type === "WHITEBOARD" ? "board" : "file";
   return <><PageHeader title={`좋은 하루예요, ${user?.displayName}님`} description="AI 논문 스터디 · 매주 논문 한 편을 함께 읽고 정리합니다." /><main className="min-h-0 flex-1 overflow-y-auto p-6"><div className="mx-auto max-w-5xl space-y-8">
     <section className="grid gap-3 sm:grid-cols-4">

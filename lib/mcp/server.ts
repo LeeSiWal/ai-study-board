@@ -30,13 +30,26 @@ export interface McpContext {
   clientLabel: string;
 }
 
-/** 권한이 있는 리소스만 남긴다(§16.5). */
-function visibleTree(context: McpContext): ResourceNode[] {
-  const allowed = listResources(context.workspaceId).filter(
-    (resource) => resolvePermissions(resource.id, context.user.id).length > 0,
+/**
+ * 권한이 있는 리소스만 남긴다(§16.5).
+ *
+ * 권한 판정이 데이터베이스를 보므로 filter 콜백 안에서 기다릴 수 없다.
+ * 먼저 전부 판정하고 그 결과로 거른다.
+ */
+async function visibleResources(context: McpContext) {
+  const resources = await listResources(context.workspaceId);
+
+  const permissions = await Promise.all(
+    resources.map((resource) =>
+      resolvePermissions(resource.id, context.user.id),
+    ),
   );
 
-  return buildResourceTree(allowed);
+  return resources.filter((_, index) => permissions[index].length > 0);
+}
+
+async function visibleTree(context: McpContext): Promise<ResourceNode[]> {
+  return buildResourceTree(await visibleResources(context));
 }
 
 function renderTree(nodes: ResourceNode[], depth = 0): string[] {
@@ -67,7 +80,7 @@ export function buildMcpServer(context: McpContext): McpServer {
       inputSchema: {},
     },
     async () => {
-      const lines = renderTree(visibleTree(context));
+      const lines = renderTree(await visibleTree(context));
 
       return {
         content: [
@@ -94,13 +107,13 @@ export function buildMcpServer(context: McpContext): McpServer {
       },
     },
     async ({ resourceId }) => {
-      const resource = findResourceById(resourceId);
+      const resource = await findResourceById(resourceId);
 
       if (!resource || resource.workspaceId !== context.workspaceId) {
         return errorResult("그런 페이지가 없습니다.");
       }
 
-      if (resolvePermissions(resourceId, context.user.id).length === 0) {
+      if ((await resolvePermissions(resourceId, context.user.id)).length === 0) {
         return errorResult("이 페이지에 접근할 권한이 없습니다.");
       }
 
@@ -139,12 +152,8 @@ export function buildMcpServer(context: McpContext): McpServer {
     async ({ query }) => {
       const needle = query.trim().toLowerCase();
 
-      const matches = listResources(context.workspaceId)
-        .filter(
-          (resource) =>
-            resource.title.toLowerCase().includes(needle) &&
-            resolvePermissions(resource.id, context.user.id).length > 0,
-        )
+      const matches = (await visibleResources(context))
+        .filter((resource) => resource.title.toLowerCase().includes(needle))
         .map(
           (resource) =>
             `- [${resource.type}] ${resource.title} (id: ${resource.id})`,
@@ -185,14 +194,14 @@ export function buildMcpServer(context: McpContext): McpServer {
       },
     },
     async ({ resourceId, summary, operations }) => {
-      const resource = findResourceById(resourceId);
+      const resource = await findResourceById(resourceId);
 
       if (!resource || resource.workspaceId !== context.workspaceId) {
         return errorResult("그런 페이지가 없습니다.");
       }
 
       // 읽기만 가능한 사용자의 토큰으로 제안을 만들 수는 없다.
-      if (!resolvePermissions(resourceId, context.user.id).includes("edit")) {
+      if (!(await resolvePermissions(resourceId, context.user.id)).includes("edit")) {
         return errorResult("이 페이지를 편집할 권한이 없습니다.");
       }
 
@@ -223,7 +232,7 @@ export function buildMcpServer(context: McpContext): McpServer {
 
       const baseVersion = await readContentVersion(resourceId);
 
-      const proposal = saveProposal({
+      const proposal = await saveProposal({
         proposal: storedProposalSchema
           .omit({
             status: true,

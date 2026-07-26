@@ -22,7 +22,7 @@ export async function GET(
 
   const { resourceId } = await params;
 
-  if (resolvePermissions(resourceId, user.id).length === 0) {
+  if ((await resolvePermissions(resourceId, user.id)).length === 0) {
     return NextResponse.json(
       { error: "이 페이지에 접근할 권한이 없습니다." },
       { status: 403 },
