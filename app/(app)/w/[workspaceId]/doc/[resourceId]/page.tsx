@@ -1,15 +1,19 @@
 import { redirect } from "next/navigation";
 
 import { CollaborativeEditor } from "@/components/editor/collaborative-editor";
-import { currentUser, signOut } from "@/lib/auth";
+import { DocumentSession } from "@/components/editor/document-session";
+import { TopBar, type Breadcrumb } from "@/components/layout/top-bar";
+import { currentUser } from "@/lib/auth";
 import { documentNameForResource } from "@/lib/contracts/collaboration";
-import { findResourceById, resolvePermissions } from "@/lib/store";
+import {
+  findResourceById,
+  listResources,
+  resolvePermissions,
+} from "@/lib/store";
+import { buildResourceTree, findResourcePath } from "@/lib/store/resource-tree";
 
 /**
- * DOC-01 공동 문서 (Phase 0 최소 형태)
- *
- * 레이아웃과 상단 바는 Phase 1~2에서 UI 명세 §4·§6·§11에 맞춰 만든다.
- * 지금 확인하려는 것은 두 사용자가 같은 문서를 실제로 함께 편집하는가다.
+ * DOC-01 공동 문서 — UI 명세 §11
  */
 export default async function DocumentPage({
   params,
@@ -19,14 +23,15 @@ export default async function DocumentPage({
   const user = await currentUser();
   if (!user) redirect("/login");
 
-  const { resourceId } = await params;
+  const { workspaceId, resourceId } = await params;
   const resource = findResourceById(resourceId);
 
   if (!resource || resource.type !== "DOCUMENT") {
     return (
-      <main style={{ maxWidth: 840, margin: "40px auto", padding: 24 }}>
-        <h1>문서를 찾을 수 없습니다.</h1>
-      </main>
+      <EmptyState
+        title="문서를 찾을 수 없습니다."
+        description="주소가 바뀌었거나 페이지가 보관되었을 수 있습니다."
+      />
     );
   }
 
@@ -34,40 +39,79 @@ export default async function DocumentPage({
 
   if (permissions.length === 0) {
     return (
-      <main style={{ maxWidth: 840, margin: "40px auto", padding: 24 }}>
-        <h1>{resource.title}</h1>
-        <p role="alert">이 페이지에 접근할 권한이 없습니다.</p>
-      </main>
+      <EmptyState
+        title={resource.title}
+        description="이 페이지에 접근할 권한이 없습니다."
+      />
     );
   }
 
-  async function logout() {
-    "use server";
-    await signOut({ redirectTo: "/login" });
-  }
+  const path = findResourcePath(
+    buildResourceTree(listResources(workspaceId)),
+    resourceId,
+  );
+
+  // 마지막은 현재 문서 자신이라 제목으로 따로 쓴다.
+  const breadcrumbs: Breadcrumb[] = path.slice(0, -1).map((node) => ({
+    id: node.id,
+    title: node.title,
+    href: node.type === "DOCUMENT" ? `/w/${workspaceId}/doc/${node.id}` : null,
+  }));
+
+  const canEdit = permissions.includes("edit");
 
   return (
-    <main style={{ maxWidth: 840, margin: "40px auto", padding: 24 }}>
-      <header style={{ marginBottom: 24 }}>
-        <p>
-          접속: <strong data-testid="current-user">{user.displayName}</strong>{" "}
-          · 권한: {permissions.join(", ")}
-          <form action={logout} style={{ display: "inline", marginLeft: 12 }}>
-            <button type="submit">로그아웃</button>
-          </form>
-        </p>
-        <h1>{resource.title}</h1>
-      </header>
+    <DocumentSession
+      resourceId={resourceId}
+      documentName={documentNameForResource(resourceId)}
+    >
+      <TopBar breadcrumbs={breadcrumbs} title={resource.title} />
 
-      <CollaborativeEditor
-        resourceId={resourceId}
-        documentName={documentNameForResource(resourceId)}
-        currentUser={{
-          displayName: user.displayName,
-          cursorColor: user.cursorColor,
-        }}
-        canEdit={permissions.includes("edit")}
-      />
-    </main>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {/* 본문 폭은 760~840px로 제한한다(§4). */}
+        <div className="mx-auto w-full max-w-200 px-6 py-10 sm:px-10">
+          <header className="mb-6">
+            {resource.icon ? (
+              <p aria-hidden className="mb-2 text-4xl">
+                {resource.icon}
+              </p>
+            ) : null}
+            <h1 className="text-[32px] leading-tight font-semibold">
+              {resource.title}
+            </h1>
+            {!canEdit ? (
+              <p role="note" className="text-warning mt-2 text-xs">
+                읽기 전용입니다. 이 페이지를 편집할 권한이 없습니다.
+              </p>
+            ) : null}
+          </header>
+
+          <CollaborativeEditor
+            currentUser={{
+              displayName: user.displayName,
+              cursorColor: user.cursorColor,
+            }}
+            canEdit={canEdit}
+          />
+        </div>
+      </div>
+    </DocumentSession>
+  );
+}
+
+function EmptyState({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center">
+      <h1 className="text-lg font-medium">{title}</h1>
+      <p className="text-text-secondary" role="alert">
+        {description}
+      </p>
+    </div>
   );
 }
