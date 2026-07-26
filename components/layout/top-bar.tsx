@@ -99,7 +99,13 @@ export function TopBar({ breadcrumbs, title }: TopBarProps) {
           active={openPanel === "ai"}
           onToggle={togglePanel}
         />
-        <IconAction icon={MoreHorizontal} label="더보기" />
+        <PanelToggle
+          icon={MoreHorizontal}
+          label="버전 기록"
+          panel="activity"
+          active={openPanel === "activity"}
+          onToggle={togglePanel}
+        />
       </div>
     </header>
   );

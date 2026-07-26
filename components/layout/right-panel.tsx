@@ -57,12 +57,38 @@ export function RightPanel() {
 
       {openPanel === "ai" ? <AiPanel /> : null}
       {openPanel === "comments" ? <CommentsPanel /> : null}
-      {openPanel === "info" || openPanel === "activity" ? (
+      {openPanel === "activity" ? <VersionPanel /> : null}
+      {openPanel === "info" ? (
         <div className="text-text-secondary flex flex-1 items-center justify-center p-6 text-center">
           준비 중입니다.
         </div>
       ) : null}
     </aside>
+  );
+}
+
+function VersionPanel() {
+  const [selected, setSelected] = useState(0);
+  const [restored, setRestored] = useState(false);
+  const versions = [
+    ["방금", "AI 제안 적용 후", "시월", "초보자 설명 추가"],
+    ["12분 전", "AI 제안 적용 전", "Study AI", "적용 전 자동 보관"],
+    ["1시간 전", "자동 저장", "민지", "예제 문단 수정"],
+  ];
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto p-3">
+      <p className="text-text-secondary mb-3 text-xs">버전을 선택해 변경 요약을 미리보고 복원할 수 있습니다.</p>
+      {versions.map(([time, reason, author, summary], index) => (
+        <button key={time} onClick={() => { setSelected(index); setRestored(false); }} className={`mb-2 w-full rounded-lg border p-3 text-left ${selected === index ? "border-primary bg-primary-soft" : ""}`}>
+          <p className="font-medium">{reason}</p><p className="text-text-secondary mt-1 text-xs">{time} · {author}</p><p className="mt-2 text-xs">{summary}</p>
+        </button>
+      ))}
+      <div className="mt-4 rounded-lg bg-surface-subtle p-3 text-xs"><strong>읽기 전용 미리보기</strong><p className="mt-2">{versions[selected][3]}</p></div>
+      <Button className="mt-3 w-full" variant="outline" onClick={() => {
+        if (window.confirm(`${versions[selected][0]} 버전으로 복원할까요? 현재 상태는 새 버전으로 보관됩니다.`)) setRestored(true);
+      }}>이 버전으로 복원</Button>
+      {restored ? <p className="text-success mt-2 text-center text-xs">현재 상태를 보관하고 선택한 버전을 복원했습니다.</p> : null}
+    </div>
   );
 }
 

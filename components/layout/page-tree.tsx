@@ -30,9 +30,10 @@ const ICONS: Record<ResourceType, typeof FileText> = {
   LINK: Link2,
 };
 
-/** 아직 화면이 없는 타입은 링크 대신 비활성으로 둔다(§2). */
 const ROUTED_TYPES: Partial<Record<ResourceType, string>> = {
   DOCUMENT: "doc",
+  WHITEBOARD: "board",
+  FILE: "file",
 };
 
 interface PageTreeProps {

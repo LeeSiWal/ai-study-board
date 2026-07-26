@@ -73,13 +73,13 @@ export function WorkspaceSidebar({
           onSignOut={onSignOut}
         />
 
-        <SidebarAction icon={Search} label="검색" shortcut="⌘K" />
+        <SidebarAction icon={Search} label="검색" shortcut="⌘K" href={`/w/${workspace.id}/search`} />
         <SidebarAction icon={Home} label="홈" href={`/w/${workspace.id}`} />
       </div>
 
       <div className="flex items-center justify-between px-3 pt-3 pb-1">
         <h2 className="text-text-tertiary text-xs font-medium">페이지</h2>
-        <NewResourceMenu />
+        <NewResourceMenu workspaceId={workspace.id} />
       </div>
 
       <ScrollArea className="min-h-0 flex-1">
@@ -265,7 +265,7 @@ function SidebarAction({
   );
 }
 
-function NewResourceMenu() {
+function NewResourceMenu({ workspaceId }: { workspaceId: string }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -281,18 +281,11 @@ function NewResourceMenu() {
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="start" className="w-48">
-        {[
-          "새 문서",
-          "새 화이트보드",
-          "파일 업로드",
-          "새 폴더",
-          "링크 추가",
-        ].map((label) => (
-          <DropdownMenuItem key={label} disabled className="justify-between">
-            {label}
-            <span className="text-text-tertiary text-[11px]">곧 제공</span>
-          </DropdownMenuItem>
-        ))}
+        <DropdownMenuItem asChild><Link href={`/w/${workspaceId}/doc/res-expected-questions`}>새 문서</Link></DropdownMenuItem>
+        <DropdownMenuItem asChild><Link href={`/w/${workspaceId}/board/res-week1-board`}>새 화이트보드</Link></DropdownMenuItem>
+        <DropdownMenuItem asChild><Link href={`/w/${workspaceId}/file/res-attention-pdf`}>파일 업로드</Link></DropdownMenuItem>
+        <DropdownMenuItem disabled>새 폴더</DropdownMenuItem>
+        <DropdownMenuItem disabled>링크 추가</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

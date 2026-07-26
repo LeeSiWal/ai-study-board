@@ -117,6 +117,12 @@ export function findMembership(
   );
 }
 
+export function listMembersWithUsers(workspaceId: string) {
+  return getStore().members
+    .filter((member) => member.workspaceId === workspaceId)
+    .map((member) => ({ ...member, user: findUserById(member.userId)! }));
+}
+
 /**
  * 자원에 대한 사용자 권한을 판정한다.
  *
