@@ -43,6 +43,11 @@ export function protocolVersionError(request: Request): string | null {
  * Claude Code 같은 비브라우저 클라이언트는 Origin을 보내지 않는다. 그래서
  * "있으면 검사하고 없으면 통과"가 맞다. 없다고 막으면 정상 클라이언트가
  * 전부 거부된다.
+ *
+ * 다만 이 검사는 우리에게 두 번째 방어선이다. 진짜 방어는 Bearer 토큰이고,
+ * 브라우저는 Authorization 헤더를 스스로 붙이지 않는다 — 우리는 MCP에
+ * 쿠키를 쓰지 않는다. 그래서 목록을 넉넉히 잡아도 잃는 것이 없고, 반대로
+ * 좁게 잡으면 멀쩡한 클라이언트가 이유 없이 막힌다.
  */
 export function originError(request: Request): string | null {
   const origin = request.headers.get("origin");
@@ -67,6 +72,21 @@ export function originError(request: Request): string | null {
   return `허용되지 않은 Origin입니다: ${origin}`;
 }
 
+/**
+ * Claude가 원격 커넥터로 붙을 때 다는 Origin.
+ *
+ * 이걸 빠뜨려서 실제로 한 번 당했다. 등록도 되고 OAuth도 통과했는데 툴이
+ * 0개로 보였다. 서버는 400을 돌려주고 있었지만 클라이언트 화면에는 "연결됨"만
+ * 떠서, 증상만 봐서는 원인이 어디에도 보이지 않았다.
+ */
+const CLAUDE_ORIGINS = [
+  "claude.ai",
+  "www.claude.ai",
+  "claude.com",
+  "www.claude.com",
+  "api.anthropic.com",
+];
+
 function allowedOrigins(): string[] {
   const configured = process.env.MCP_ALLOWED_ORIGINS;
 
@@ -74,5 +94,5 @@ function allowedOrigins(): string[] {
     ? configured.split(",").map((entry) => entry.trim()).filter(Boolean)
     : [];
 
-  return ["localhost", "127.0.0.1", "[::1]", ...extra];
+  return ["localhost", "127.0.0.1", "[::1]", ...CLAUDE_ORIGINS, ...extra];
 }

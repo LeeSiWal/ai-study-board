@@ -263,6 +263,30 @@ test("등록되지 않은 redirect_uri로는 리다이렉트하지 않는다", a
   ).toBeVisible();
 });
 
+/**
+ * Claude가 원격 커넥터로 붙을 때 다는 Origin을 막지 않는지 본다.
+ *
+ * 이걸 막았을 때의 증상이 고약하다. 등록도 되고 OAuth도 통과하는데 툴만
+ * 0개로 보인다. 클라이언트 화면에는 "연결됨"이라 떠서 어디를 봐야 할지
+ * 알 수 없다. 인증 이전 단계에서 걸리기 때문이다.
+ */
+test("Claude의 Origin은 통과하고 모르는 Origin은 막는다", async ({ request }) => {
+  const call = (origin: string) =>
+    request.post("/api/mcp", {
+      headers: { origin },
+      data: { jsonrpc: "2.0", id: 1, method: "tools/list" },
+      failOnStatusCode: false,
+    });
+
+  // 토큰이 없어 401까지는 간다. 중요한 건 Origin 때문에 400에서 죽지
+  // 않는다는 것이다 — 400이면 클라이언트가 인증을 시작조차 못 한다.
+  for (const origin of ["https://claude.ai", "https://api.anthropic.com"]) {
+    expect((await call(origin)).status(), origin).toBe(401);
+  }
+
+  expect((await call("https://evil.example.com")).status()).toBe(400);
+});
+
 test("토큰 없이 MCP를 부르면 메타데이터 주소를 알려준다", async ({ request }) => {
   const response = await request.post("/api/mcp", {
     data: { jsonrpc: "2.0", id: 1, method: "tools/list" },
