@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { join } from "node:path";
+
 import { currentUser } from "@/lib/auth";
 import { issueToken, listTokens, revokeToken } from "@/lib/mcp/tokens";
 
@@ -55,6 +57,9 @@ export async function POST(request: Request) {
     // 원문은 여기서만 나간다.
     token,
     hint: record.hint,
+    // Claude Desktop 설정에 넣을 브리지 경로. 사용자가 저장소 위치를 손으로
+    // 찾아 적지 않게 한다.
+    bridgePath: join(process.cwd(), "mcp-bridge", "index.ts"),
   });
 }
 

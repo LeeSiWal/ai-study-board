@@ -18,6 +18,13 @@ import { Label } from "@/components/ui/label";
  * 복사한다.
  */
 
+/** 발급 응답. 원문과 브리지 경로는 이 순간에만 존재한다. */
+interface IssuedTokenValue {
+  name: string;
+  token: string;
+  bridgePath: string;
+}
+
 interface TokenSummary {
   id: string;
   name: string;
@@ -33,9 +40,7 @@ export function McpAccessTokens() {
   const [issuing, setIssuing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** 방금 발급된 원문. 화면을 떠나면 다시 볼 수 없다. */
-  const [issued, setIssued] = useState<{ name: string; token: string } | null>(
-    null,
-  );
+  const [issued, setIssued] = useState<IssuedTokenValue | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -85,7 +90,11 @@ export function McpAccessTokens() {
         throw new Error(body?.error ?? "토큰을 발급하지 못했습니다.");
       }
 
-      setIssued({ name: body.name, token: body.token });
+      setIssued({
+        name: body.name,
+        token: body.token,
+        bridgePath: body.bridgePath,
+      });
       setName("");
       await refresh();
     } catch (caught) {
@@ -228,29 +237,55 @@ function IssuedToken({
   issued,
   onDone,
 }: {
-  issued: { name: string; token: string };
+  issued: IssuedTokenValue;
   onDone: () => void;
 }) {
-  const [copied, setCopied] = useState<"token" | "config" | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
+  const [client, setClient] = useState<"code" | "desktop">("code");
 
   const origin =
     typeof window === "undefined" ? "http://localhost:7171" : window.location.origin;
 
-  const config = JSON.stringify(
-    {
-      mcpServers: {
-        "ai-study-board": {
-          type: "http",
-          url: `${origin}/api/mcp`,
-          headers: { Authorization: `Bearer ${issued.token}` },
+  /**
+   * 클라이언트마다 설정 모양이 다르다.
+   *
+   * Claude Code는 HTTP 서버에 헤더를 붙일 수 있다. Claude Desktop은 원격
+   * 서버에 OAuth 흐름을 요구해서 Bearer 헤더를 넣을 자리가 없다. 그래서
+   * 로컬 브리지를 자식 프로세스로 띄우고 토큰을 환경변수로 넘긴다.
+   */
+  const configs = {
+    code: JSON.stringify(
+      {
+        mcpServers: {
+          "ai-study-board": {
+            type: "http",
+            url: `${origin}/api/mcp`,
+            headers: { Authorization: `Bearer ${issued.token}` },
+          },
         },
       },
-    },
-    null,
-    2,
-  );
+      null,
+      2,
+    ),
+    desktop: JSON.stringify(
+      {
+        mcpServers: {
+          "ai-study-board": {
+            command: "npx",
+            args: ["-y", "tsx", `${issued.bridgePath}`],
+            env: {
+              AI_STUDY_MCP_URL: `${origin}/api/mcp`,
+              AI_STUDY_MCP_TOKEN: issued.token,
+            },
+          },
+        },
+      },
+      null,
+      2,
+    ),
+  };
 
-  async function copy(value: string, kind: "token" | "config") {
+  async function copy(value: string, kind: string) {
     await navigator.clipboard.writeText(value);
     setCopied(kind);
     setTimeout(() => setCopied(null), 2000);
@@ -284,9 +319,33 @@ function IssuedToken({
       </div>
 
       <div>
-        <div className="mb-1.5 flex items-center justify-between">
-          <p className="text-text-secondary text-xs">MCP 클라이언트 설정</p>
-          <Button size="sm" variant="ghost" onClick={() => void copy(config, "config")}>
+        <div className="mb-1.5 flex items-center justify-between gap-2">
+          <div className="flex gap-1">
+            {(
+              [
+                ["code", "Claude Code"],
+                ["desktop", "Claude Desktop"],
+              ] as const
+            ).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setClient(key)}
+                className={`rounded-full px-2.5 py-1 text-xs ${
+                  client === key
+                    ? "bg-primary text-primary-foreground"
+                    : "border-border hover:bg-surface-subtle border"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => void copy(configs[client], "config")}
+          >
             {copied === "config" ? (
               <>
                 <Check aria-hidden className="size-3.5" /> 복사됨
@@ -298,9 +357,27 @@ function IssuedToken({
             )}
           </Button>
         </div>
+
         <pre className="bg-surface overflow-x-auto rounded border p-3 text-[11px] leading-relaxed">
-          {config}
+          {configs[client]}
         </pre>
+
+        <p className="text-text-tertiary mt-1.5 text-[11px]">
+          {client === "desktop" ? (
+            <>
+              Claude Desktop은 원격 서버에 OAuth를 요구해서 Bearer 헤더를 넣을
+              자리가 없습니다. 로컬 브리지가 그 사이를 메웁니다.
+              <br />
+              설정 파일 위치: macOS{" "}
+              <code>~/Library/Application Support/Claude/claude_desktop_config.json</code>
+            </>
+          ) : (
+            <>
+              설정 파일 위치: <code>~/.claude.json</code> 또는 프로젝트의{" "}
+              <code>.mcp.json</code>
+            </>
+          )}
+        </p>
       </div>
 
       <Button size="sm" variant="ghost" onClick={onDone}>
