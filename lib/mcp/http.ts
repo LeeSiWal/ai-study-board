@@ -1,21 +1,26 @@
+import { SUPPORTED_PROTOCOL_VERSIONS } from "@modelcontextprotocol/sdk/types.js";
+
 /**
- * Streamable HTTP 전송의 규약 검사 — MCP 명세 2025-06-18
+ * Streamable HTTP 전송의 규약 검사 — MCP 명세
  *
  * 프로토콜 처리는 SDK가 하지만, 전송 계층의 요구사항은 라우트가 지켜야 한다.
  * 여기 모아 두어 라우트가 무엇을 검사하는지 한눈에 보이게 한다.
  */
 
 /**
- * 우리가 이해하는 프로토콜 버전.
+ * 우리가 이해하는 프로토콜 버전 — SDK에서 그대로 가져온다.
  *
  * 명세는 알 수 없는 버전에 400을 돌려주라고 한다. 조용히 받아주면 클라이언트가
  * 우리가 지원하지 않는 동작을 기대하게 된다.
+ *
+ * 손으로 적어 두었다가 크게 당했다. SDK가 2025-11-25로 협상해 놓고 그 다음
+ * 요청을 우리 목록이 400으로 막았다. initialize는 200인데 tools/list만
+ * 죽으니, 밖에서는 "연결됨 + 툴 0개"로 보였다. 서버가 자기가 합의한 버전을
+ * 스스로 거부한 것이다.
+ *
+ * SDK를 올리면 목록도 따라 오른다. 다시 어긋날 수 없다.
  */
-export const SUPPORTED_PROTOCOL_VERSIONS = [
-  "2025-06-18",
-  "2025-03-26",
-  "2024-11-05",
-] as const;
+export { SUPPORTED_PROTOCOL_VERSIONS };
 
 /**
  * 헤더가 없으면 구버전으로 간주한다. 명세가 정한 기본값이다.
@@ -25,7 +30,7 @@ export function protocolVersionError(request: Request): string | null {
   const version = request.headers.get("mcp-protocol-version");
   if (!version) return null;
 
-  if (!SUPPORTED_PROTOCOL_VERSIONS.includes(version as never)) {
+  if (!SUPPORTED_PROTOCOL_VERSIONS.includes(version)) {
     return `지원하지 않는 프로토콜 버전입니다: ${version}. 지원 범위: ${SUPPORTED_PROTOCOL_VERSIONS.join(", ")}`;
   }
 
