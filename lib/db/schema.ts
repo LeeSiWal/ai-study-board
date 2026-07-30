@@ -113,6 +113,23 @@ export const documents = pgTable("documents", {
 });
 
 /**
+ * 화이트보드 장면.
+ *
+ * Excalidraw의 elements/files와 공유 가능한 appState만 JSON으로 직렬화한다.
+ * 뷰포트·현재 도구·선택처럼 개인적인 UI 상태는 클라이언트에만 남긴다.
+ */
+export const whiteboards = pgTable("whiteboards", {
+  resourceId: text("resource_id")
+    .primaryKey()
+    .references(() => resources.id, { onDelete: "cascade" }),
+  scene: text("scene").notNull(),
+  version: bigint("version", { mode: "number" }).notNull().default(0),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+/**
  * 협업 문서의 스냅샷 — §7
  *
  * 본문의 출처는 여전히 CRDT다. 이 테이블은 협업 서버가 재시작해도 문서가
@@ -230,6 +247,10 @@ export const resourcesRelations = relations(resources, ({ one, many }) => ({
   document: one(documents, {
     fields: [resources.id],
     references: [documents.resourceId],
+  }),
+  whiteboard: one(whiteboards, {
+    fields: [resources.id],
+    references: [whiteboards.resourceId],
   }),
   comments: many(comments),
 }));

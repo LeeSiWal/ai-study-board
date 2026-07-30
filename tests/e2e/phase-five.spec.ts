@@ -25,7 +25,7 @@ test("워크스페이스 홈, 멤버, 활동과 설정을 탐색한다", async (
   await expect(page.getByText(/issue.create를 실행/)).toBeVisible();
 
   await page.getByRole("link", { name: "설정" }).click();
-  await page.getByLabel("워크스페이스 이름").fill("AI 논문 스터디 시즌 2");
+  await page.getByLabel("워크스페이스 이름").fill("AI 스터디 시즌 2");
   await page.getByRole("button", { name: "변경사항 저장" }).click();
   await expect(page.getByText("저장했습니다.")).toBeVisible();
 });
@@ -44,11 +44,15 @@ test("통합 검색에서 문서와 확장 리소스를 연다", async ({ page }
 test("화이트보드에 포스트잇을 추가하고 편집한다", async ({ page }) => {
   await login(page);
   await page.goto(`${WORKSPACE}/board/res-week1-board`);
-  await page.getByRole("button", { name: "포스트잇" }).click();
-  const notes = page.getByLabel("포스트잇 내용");
-  await expect(notes).toHaveCount(2);
-  await notes.last().fill("Q, K, V 관계");
-  await expect(notes.last()).toHaveValue("Q, K, V 관계");
+  await page.getByRole("button", { name: "포스트잇 추가" }).click();
+  await expect(page.getByTestId("whiteboard-save-status")).toHaveText("저장됨", {
+    timeout: 15_000,
+  });
+
+  // 서버 저장을 거쳐도 장면이 복원되는지 확인한다.
+  await page.reload();
+  await expect(page.getByRole("button", { name: "포스트잇 추가" })).toBeVisible();
+  await expect(page.locator(".excalidraw canvas").first()).toBeVisible();
 });
 
 test("개인 AI와 MCP 연결 승인 흐름을 완료한다", async ({ page }) => {

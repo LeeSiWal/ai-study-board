@@ -14,7 +14,7 @@ type DocumentSeed = typeof schema.documents.$inferInsert;
  * 시드 데이터.
  *
  * UI 명세 §28 "목 데이터 기준"을 그대로 옮겼다.
- * 워크스페이스는 `AI 논문 스터디`, 멤버 6명, 페이지 트리도 명세와 같다.
+ * 워크스페이스는 `AI 스터디`, 멤버 6명, 페이지 트리도 명세와 같다.
  */
 
 /** 프로토타입 공용 비밀번호. 모든 시드 사용자가 같은 값을 쓴다. */
@@ -67,7 +67,7 @@ export const SEED_USERS: UserSeed[] = [
 
 export const SEED_WORKSPACE: WorkspaceSeed = {
   id: "workspace-ai-papers",
-  name: "AI 논문 스터디",
+  name: "AI 스터디",
   description: "매주 논문 한 편을 함께 읽고 정리합니다.",
   ownerUserId: "user-siwol",
 };
@@ -84,7 +84,7 @@ export const SEED_MEMBERS: MemberSeed[] = [
 /**
  * 페이지 트리 (UI 명세 §28)
  *
- * AI 논문 스터디
+ * AI 스터디
  * ├─ 공지와 일정
  * ├─ 1주차
  * │  ├─ Transformer 개요

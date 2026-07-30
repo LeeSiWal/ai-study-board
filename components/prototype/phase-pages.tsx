@@ -4,16 +4,10 @@ import {
   ArrowRight,
   Bot,
   Check,
-  Circle,
   FileText,
-  Hand,
-  Image,
   Link2,
-  MousePointer2,
   Search,
   Send,
-  Square,
-  StickyNote,
   Upload,
   Users,
   Wrench,
@@ -75,7 +69,7 @@ export function MembersManager({
 }
 
 export function WorkspaceSettings() {
-  const [name, setName] = useState("AI 논문 스터디");
+  const [name, setName] = useState("AI 스터디");
   const [description, setDescription] = useState("매주 논문 한 편을 함께 읽고 정리합니다.");
   const [aiEnabled, setAiEnabled] = useState(true);
   const [saved, setSaved] = useState(false);
@@ -117,31 +111,9 @@ export function SearchPage({ workspaceId, resources }: { workspaceId: string; re
       <div className="rounded-xl border bg-surface p-2">
         {!results.length ? <p className="text-text-secondary p-8 text-center">“{query}”와 일치하는 결과가 없습니다.</p> : results.map((resource) => {
           const route = segment(resource.type);
-          const content = <><FileText className="text-text-tertiary size-4" /><div><p>{resource.title}</p><p className="text-text-tertiary text-xs">{resource.type} · AI 논문 스터디</p></div><ArrowRight className="ml-auto size-4" /></>;
+          const content = <><FileText className="text-text-tertiary size-4" /><div><p>{resource.title}</p><p className="text-text-tertiary text-xs">{resource.type} · AI 스터디</p></div><ArrowRight className="ml-auto size-4" /></>;
           return route ? <Link key={resource.id} href={`/w/${workspaceId}/${route}/${resource.id}`} className="hover:bg-surface-subtle flex items-center gap-3 rounded-lg p-3">{content}</Link> : <div key={resource.id} className="flex items-center gap-3 p-3 opacity-60">{content}</div>;
         })}</div>
-    </div>
-  );
-}
-
-const BOARD_TOOLS = [
-  ["선택", MousePointer2], ["손", Hand], ["사각형", Square], ["원", Circle], ["포스트잇", StickyNote], ["이미지", Image],
-] as const;
-
-export function Whiteboard({ title }: { title: string }) {
-  const [tool, setTool] = useState("선택");
-  const [notes, setNotes] = useState([{ id: 1, text: "Self-Attention", x: 32, y: 28 }]);
-  return (
-    <div className="relative min-h-[calc(100vh-8rem)] overflow-hidden rounded-xl border bg-[radial-gradient(#dfe3e8_1px,transparent_1px)] [background-size:20px_20px]">
-      <div className="absolute top-3 left-3 z-10 flex gap-1 rounded-xl border bg-surface p-1 shadow">
-        {BOARD_TOOLS.map(([label, Icon]) => <Button key={label} size="icon" variant={tool === label ? "secondary" : "ghost"} aria-label={label} onClick={() => {
-          setTool(label);
-          if (label === "포스트잇") setNotes((items) => [...items, { id: Date.now(), text: "새 메모", x: 180 + items.length * 20, y: 120 }]);
-        }}><Icon className="size-4" /></Button>)}
-      </div>
-      <p className="text-text-tertiary absolute top-4 right-4 text-xs">{title} · 도구: {tool} · 100%</p>
-      {notes.map((note) => <div key={note.id} style={{ left: note.x, top: note.y }} className="absolute w-40 rounded-md border border-amber-300 bg-amber-100 p-4 shadow-sm"><textarea aria-label="포스트잇 내용" value={note.text} onChange={(e) => setNotes((items) => items.map((item) => item.id === note.id ? { ...item, text: e.target.value } : item))} className="h-20 w-full resize-none bg-transparent outline-none" /></div>)}
-      <div className="absolute right-5 bottom-5 flex -space-x-2"><span className="flex size-8 items-center justify-center rounded-full border-2 border-white bg-primary text-white">시</span><span className="flex size-8 items-center justify-center rounded-full border-2 border-white bg-success text-white">민</span></div>
     </div>
   );
 }
