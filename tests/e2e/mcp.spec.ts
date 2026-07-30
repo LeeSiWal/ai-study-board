@@ -22,11 +22,17 @@ test("MCP 접속 토큰을 발급하고 폐기한다", async ({ page }) => {
   const issued = page.getByTestId("issued-token");
   await expect(issued).toContainText("지금 복사하세요");
   // 목록의 힌트(mcp_abcd…wxyz)가 아니라 잘리지 않은 원문이어야 한다.
-  await expect(issued.locator("code")).toHaveText(/^mcp_[\w-]{20,}$/);
+  // 설정 파일 경로 안내에도 code 요소가 있어 첫 번째로 좁힌다.
+  await expect(issued.locator("code").first()).toHaveText(/^mcp_[\w-]{20,}$/);
 
   // 손으로 조립하지 않도록 클라이언트 설정을 통째로 준다.
   await expect(issued).toContainText('"mcpServers"');
   await expect(issued).toContainText("/api/mcp");
+
+  // Claude Desktop은 설정 모양이 다르다. 브리지를 자식 프로세스로 띄운다.
+  await issued.getByRole("button", { name: "Claude Desktop" }).click();
+  await expect(issued).toContainText("AI_STUDY_MCP_TOKEN");
+  await expect(issued).toContainText("mcp-bridge");
 
   await issued.getByRole("button", { name: "복사했습니다" }).click();
   await expect(issued).toBeHidden();

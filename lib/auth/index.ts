@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 
 import { findUserByEmail, findUserById } from "../store";
+import { verifyPassword } from "./password";
 import type { User } from "../store/types";
 
 /**
@@ -35,7 +36,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         const user = await findUserByEmail(email);
-        if (!user || user.password !== password) return null;
+        if (!user) return null;
+
+        if (!(await verifyPassword(password, user.password))) return null;
 
         return { id: user.id, email: user.email, name: user.displayName };
       },

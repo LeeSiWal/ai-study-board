@@ -1,4 +1,5 @@
 import { AuthError } from "next-auth";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
@@ -101,7 +102,9 @@ export default async function LoginPage() {
 
           <p className="text-text-secondary mt-5 text-center text-xs">
             계정이 없으신가요?{" "}
-            <span className="text-text-tertiary">회원가입 (곧 제공)</span>
+            <Link href="/signup" className="text-primary hover:underline">
+              회원가입
+            </Link>
           </p>
         </div>
 

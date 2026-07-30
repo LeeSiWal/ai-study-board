@@ -1,3 +1,6 @@
+import { eq } from "drizzle-orm";
+
+import { hashPassword } from "../lib/auth/password";
 import { db, schema } from "../lib/db";
 import {
   SEED_DOCUMENTS,
@@ -20,8 +23,22 @@ import {
 async function main() {
   console.log("시드 데이터를 넣습니다…\n");
 
-  await db.insert(schema.users).values(SEED_USERS).onConflictDoNothing();
-  console.log(`  사용자 ${SEED_USERS.length}명`);
+  // 비밀번호는 해시로 넣는다. 시드도 예외를 두지 않는다.
+  const users = await Promise.all(
+    SEED_USERS.map(async (user) => ({
+      ...user,
+      password: await hashPassword(user.password),
+    })),
+  );
+
+  await db.insert(schema.users).values(users).onConflictDoNothing();
+  console.log(`  사용자 ${users.length}명 (비밀번호 해시)`);
+
+  // 해싱을 도입하기 전에 평문으로 저장된 레코드가 남아 있다. 그대로 두면
+  // 로그인이 깨지므로 여기서 올려 준다. onConflictDoNothing은 기존 행을
+  // 건드리지 않기 때문에 별도 단계가 필요하다.
+  const upgraded = await upgradePlaintextPasswords();
+  if (upgraded) console.log(`  평문 비밀번호 ${upgraded}건을 해시로 올림`);
 
   await db
     .insert(schema.workspaces)
@@ -47,6 +64,21 @@ async function main() {
   console.log(`  문서 메타데이터 ${SEED_DOCUMENTS.length}개`);
 
   console.log("\n완료. 로그인 비밀번호는 모두 study1234 입니다.");
+}
+
+/** bcrypt 해시는 $2로 시작한다. 그렇지 않은 값은 평문이다. */
+async function upgradePlaintextPasswords(): Promise<number> {
+  const rows = await db.select().from(schema.users);
+  const plaintext = rows.filter((row) => !row.password.startsWith("$2"));
+
+  for (const row of plaintext) {
+    await db
+      .update(schema.users)
+      .set({ password: await hashPassword(row.password) })
+      .where(eq(schema.users.id, row.id));
+  }
+
+  return plaintext.length;
 }
 
 main()
