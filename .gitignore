@@ -51,3 +51,6 @@ next-env.d.ts
 
 # 대화 중 전달된 첨부 파일 (원본은 docs/design/ui-spec.md로 옮겨 둠)
 /.pcd-attachments/
+
+# 진단용 MCP 접근 기록
+.mcp-access.log

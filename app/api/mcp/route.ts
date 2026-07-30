@@ -1,6 +1,7 @@
 import type { JSONRPCMessage } from "@modelcontextprotocol/sdk/types.js";
 import { NextResponse } from "next/server";
 
+import { logMcp, requestFacts } from "@/lib/mcp/access-log";
 import { authenticateMcpRequest } from "@/lib/mcp/authenticate";
 import { originError, protocolVersionError } from "@/lib/mcp/http";
 import { OneShotTransport } from "@/lib/mcp/one-shot-transport";
@@ -26,18 +27,29 @@ import { canonicalResource, requestOrigin } from "@/lib/oauth/core";
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
+  const facts = requestFacts(request);
+
   // 전송 계층 검사가 먼저다. 인증보다 앞에 두어야 토큰 검증에 자원을 쓰기
   // 전에 규약 위반을 걸러낸다.
   const origin = originError(request);
-  if (origin) return badRequest(origin, -32600);
+
+  if (origin) {
+    logMcp({ ...facts, outcome: `400 ${origin}` });
+    return badRequest(origin, -32600);
+  }
 
   const version = protocolVersionError(request);
-  if (version) return badRequest(version, -32600);
+
+  if (version) {
+    logMcp({ ...facts, outcome: `400 ${version}` });
+    return badRequest(version, -32600);
+  }
 
   const origin_ = requestOrigin(request);
   const token = bearerToken(request);
 
   if (!token) {
+    logMcp({ ...facts, outcome: "401 토큰 없음" });
     return unauthorized(
       origin_,
       "Authorization 헤더에 Bearer 토큰이 필요합니다.",
@@ -50,6 +62,7 @@ export async function POST(request: Request) {
   );
 
   if (!identity) {
+    logMcp({ ...facts, outcome: "401 토큰 무효" });
     return unauthorized(origin_, "토큰이 유효하지 않거나 만료되었습니다.");
   }
 
@@ -58,12 +71,14 @@ export async function POST(request: Request) {
   try {
     message = (await request.json()) as JSONRPCMessage;
   } catch {
+    logMcp({ ...facts, outcome: "400 본문 파싱 실패" });
     return NextResponse.json(
       { jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } },
       { status: 400 },
     );
   }
 
+  const method = "method" in message ? message.method : undefined;
   const server = buildMcpServer(identity);
 
   const transport = new OneShotTransport();
@@ -73,12 +88,28 @@ export async function POST(request: Request) {
     const response = await transport.handle(message);
 
     // 알림에는 응답하지 않는다. JSON-RPC에서 알림에 응답하면 위반이다.
-    if (!response) return new Response(null, { status: 202 });
+    if (!response) {
+      logMcp({ ...facts, method, outcome: "202 알림" });
+      return new Response(null, { status: 202 });
+    }
+
+    logMcp({
+      ...facts,
+      method,
+      // 툴 개수를 함께 남긴다. "불렀는데 0개"와 "부르지도 않았다"는 원인이
+      // 전혀 다른데, 밖에서는 둘 다 똑같이 "툴 없음"으로 보인다.
+      outcome:
+        "result" in response && response.result
+          ? `200 ${summarize(response.result)}`
+          : `200 ${JSON.stringify(response).slice(0, 200)}`,
+    });
 
     return NextResponse.json(response);
   } catch (error) {
     const detail =
       error instanceof Error ? error.message : "알 수 없는 오류입니다.";
+
+    logMcp({ ...facts, method, outcome: `500 ${detail}` });
 
     return NextResponse.json(
       {
@@ -91,6 +122,15 @@ export async function POST(request: Request) {
   } finally {
     await server.close().catch(() => {});
   }
+}
+
+function summarize(result: unknown): string {
+  if (result && typeof result === "object" && "tools" in result) {
+    const { tools } = result as { tools: unknown[] };
+    return `툴 ${tools.length}개`;
+  }
+
+  return JSON.stringify(result).slice(0, 200);
 }
 
 /**
