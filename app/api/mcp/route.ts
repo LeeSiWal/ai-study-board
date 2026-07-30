@@ -1,10 +1,12 @@
 import type { JSONRPCMessage } from "@modelcontextprotocol/sdk/types.js";
 import { NextResponse } from "next/server";
 
+import { authenticateMcpRequest } from "@/lib/mcp/authenticate";
 import { originError, protocolVersionError } from "@/lib/mcp/http";
 import { OneShotTransport } from "@/lib/mcp/one-shot-transport";
 import { buildMcpServer } from "@/lib/mcp/server";
-import { authenticateToken, bearerToken } from "@/lib/mcp/tokens";
+import { bearerToken } from "@/lib/mcp/tokens";
+import { canonicalResource, requestOrigin } from "@/lib/oauth/core";
 
 /**
  * /api/mcp — 들어오는 MCP (아키텍처 §15.4)
@@ -32,16 +34,23 @@ export async function POST(request: Request) {
   const version = protocolVersionError(request);
   if (version) return badRequest(version, -32600);
 
+  const origin_ = requestOrigin(request);
   const token = bearerToken(request);
 
   if (!token) {
-    return unauthorized("Authorization 헤더에 Bearer 토큰이 필요합니다.");
+    return unauthorized(
+      origin_,
+      "Authorization 헤더에 Bearer 토큰이 필요합니다.",
+    );
   }
 
-  const authenticated = await authenticateToken(token);
+  const identity = await authenticateMcpRequest(
+    token,
+    canonicalResource(origin_),
+  );
 
-  if (!authenticated) {
-    return unauthorized("토큰이 유효하지 않습니다.");
+  if (!identity) {
+    return unauthorized(origin_, "토큰이 유효하지 않거나 만료되었습니다.");
   }
 
   let message: JSONRPCMessage;
@@ -55,11 +64,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const server = buildMcpServer({
-    user: authenticated.user,
-    workspaceId: authenticated.record.workspaceId,
-    clientLabel: authenticated.record.name,
-  });
+  const server = buildMcpServer(identity);
 
   const transport = new OneShotTransport();
 
@@ -133,13 +138,24 @@ function badRequest(detail: string, code: number) {
   );
 }
 
-function unauthorized(detail: string) {
+/**
+ * 401은 OAuth 흐름의 출발점이다.
+ *
+ * MCP 인가 명세는 401에 `resource_metadata`를 실으라고 MUST로 요구한다.
+ * 클라이언트는 이 주소 하나로 인가 서버를 찾아 등록·인가·발급을 스스로
+ * 진행한다. 이 파라미터가 빠지면 클라이언트는 어디로 가야 할지 몰라
+ * "인증 실패"만 보여주고 멈춘다.
+ */
+function unauthorized(origin: string, detail: string) {
+  const metadata = `${origin}/.well-known/oauth-protected-resource/api/mcp`;
+
   return NextResponse.json(
     { jsonrpc: "2.0", id: null, error: { code: -32001, message: detail } },
     {
       status: 401,
-      // MCP 클라이언트가 인증 방식을 알아채도록 표준 헤더를 준다.
-      headers: { "www-authenticate": 'Bearer realm="ai-study-board"' },
+      headers: {
+        "www-authenticate": `Bearer realm="ai-study-board", resource_metadata="${metadata}"`,
+      },
     },
   );
 }

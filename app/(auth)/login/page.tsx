@@ -7,6 +7,7 @@ import { LoginForm, type LoginState } from "@/components/auth/login-form";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { auth, signIn } from "@/lib/auth";
+import { safeNextPath } from "@/lib/auth/next-path";
 import {
   DEMO_DOCUMENT_ID,
   SEED_PASSWORD,
@@ -27,44 +28,52 @@ const credentialsSchema = z.object({
   password: z.string().min(1, { message: "비밀번호를 입력해주세요." }),
 });
 
-async function login(
-  _state: LoginState,
-  formData: FormData,
-): Promise<LoginState> {
-  "use server";
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  // OAuth 동의 화면이 로그인을 거쳐 돌아온다. 로그인만 시키고 문서로
+  // 보내 버리면 사용자가 인가를 처음부터 다시 시작해야 한다.
+  const next = safeNextPath((await searchParams).next) ?? DEMO_PATH;
 
-  const parsed = credentialsSchema.safeParse({
-    email: formData.get("email"),
-    password: formData.get("password"),
-  });
-
-  if (!parsed.success) {
-    const { fieldErrors } = z.flattenError(parsed.error);
-
-    return {
-      fieldErrors: {
-        email: fieldErrors.email?.[0],
-        password: fieldErrors.password?.[0],
-      },
-    };
-  }
-
-  try {
-    await signIn("credentials", { ...parsed.data, redirectTo: DEMO_PATH });
-  } catch (caught) {
-    // signIn은 성공 시 리다이렉트를 throw 한다. 그건 통과시켜야 한다.
-    if (caught instanceof AuthError) {
-      return { formError: "이메일 또는 비밀번호가 올바르지 않습니다." };
-    }
-    throw caught;
-  }
-
-  return {};
-}
-
-export default async function LoginPage() {
   const session = await auth();
-  if (session?.user) redirect(DEMO_PATH);
+  if (session?.user) redirect(next);
+
+  async function login(
+    _state: LoginState,
+    formData: FormData,
+  ): Promise<LoginState> {
+    "use server";
+
+    const parsed = credentialsSchema.safeParse({
+      email: formData.get("email"),
+      password: formData.get("password"),
+    });
+
+    if (!parsed.success) {
+      const { fieldErrors } = z.flattenError(parsed.error);
+
+      return {
+        fieldErrors: {
+          email: fieldErrors.email?.[0],
+          password: fieldErrors.password?.[0],
+        },
+      };
+    }
+
+    try {
+      await signIn("credentials", { ...parsed.data, redirectTo: next });
+    } catch (caught) {
+      // signIn은 성공 시 리다이렉트를 throw 한다. 그건 통과시켜야 한다.
+      if (caught instanceof AuthError) {
+        return { formError: "이메일 또는 비밀번호가 올바르지 않습니다." };
+      }
+      throw caught;
+    }
+
+    return {};
+  }
 
   return (
     <main className="flex flex-1 items-center justify-center px-4 py-12">
@@ -108,7 +117,7 @@ export default async function LoginPage() {
           </p>
         </div>
 
-        <QuickLogin />
+        <QuickLogin next={next} />
       </div>
     </main>
   );
@@ -120,14 +129,14 @@ export default async function LoginPage() {
  * 동시 편집을 확인하려면 탭마다 다른 사용자로 들어가야 하는데, 매번
  * 자격 증명을 입력하는 것은 번거롭다. 실제 제품에는 없는 화면이다.
  */
-function QuickLogin() {
+function QuickLogin({ next }: { next: string }) {
   async function quickLogin(formData: FormData) {
     "use server";
 
     await signIn("credentials", {
       email: formData.get("email"),
       password: SEED_PASSWORD,
-      redirectTo: DEMO_PATH,
+      redirectTo: next,
     });
   }
 

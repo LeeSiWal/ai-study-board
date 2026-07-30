@@ -1,5 +1,7 @@
 import { PageHeader } from "@/components/layout/page-header";
 import { McpAccessTokens } from "@/components/mcp/access-tokens";
+import { ConnectedApps } from "@/components/mcp/connections";
+import { McpConnectorUrl } from "@/components/mcp/connector-url";
 import { McpConnections } from "@/components/prototype/phase-pages";
 import { SEED_WORKSPACE } from "@/lib/store/seed";
 
@@ -23,6 +25,10 @@ export default function McpSettingsPage() {
 
       <main className="p-6">
         <div className="mx-auto max-w-3xl space-y-8">
+          {/* OAuth로 붙는 길이 먼저다. 토큰과 브리지는 그걸 못 쓰는
+              클라이언트를 위한 뒷길이라 아래로 내린다. */}
+          <McpConnectorUrl />
+          <ConnectedApps />
           <McpAccessTokens />
 
           <section className="space-y-3">

@@ -137,12 +137,13 @@ export function McpAccessTokens() {
     <section className="bg-surface space-y-4 rounded-xl border p-5">
       <div>
         <h2 className="flex items-center gap-2 font-semibold">
-          <KeyRound aria-hidden className="size-4" />이 워크스페이스를 AI에 연결
+          <KeyRound aria-hidden className="size-4" />
+          접속 토큰 (OAuth를 못 쓰는 경우)
         </h2>
         <p className="text-text-secondary mt-1 text-xs">
-          Claude Desktop이나 Claude Code 같은 도구가 이 워크스페이스의 문서를
-          읽고 수정을 제안할 수 있습니다. 수정은 제안으로만 만들어지며, 승인해야
-          문서에 반영됩니다.
+          위의 커넥터 방식이 대부분의 경우 더 쉽습니다. 설정 파일에 직접 적어야
+          하는 클라이언트나 스크립트에서만 토큰을 발급하세요. 권한은 커넥터와
+          같습니다 — 읽기와 제안까지입니다.
         </p>
       </div>
 

@@ -56,6 +56,12 @@ export function originError(request: Request): string | null {
     return `Origin 형식이 올바르지 않습니다: ${origin}`;
   }
 
+  // 우리 자신은 언제나 허용한다. 터널 도메인으로 들어온 요청이 그 도메인을
+  // Origin으로 달고 오는데, 목록에 없다고 막으면 정작 공개 주소에서만
+  // 연결이 실패한다.
+  const self = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  if (self && hostname === self.split(":")[0]) return null;
+
   if (allowedOrigins().includes(hostname)) return null;
 
   return `허용되지 않은 Origin입니다: ${origin}`;

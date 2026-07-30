@@ -261,3 +261,79 @@ export const commentsRelations = relations(comments, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+/**
+ * OAuth 2.1 — MCP 인가 명세
+ *
+ * Claude Desktop 같은 클라이언트는 미리 등록할 방법이 없어 동적 등록으로
+ * 스스로 들어온다(RFC 7591). 그래서 이 표는 사용자가 만드는 것이 아니라
+ * 클라이언트가 채운다.
+ */
+export const oauthClients = pgTable("oauth_clients", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  /** JSON 배열. 인가 시 정확히 일치해야 한다. 부분 일치를 허용하면
+   *  공격자가 인가 코드를 자기 서버로 빼돌릴 수 있다. */
+  redirectUris: text("redirect_uris").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+/**
+ * 인가 코드.
+ *
+ * 원문을 저장하지 않고 해시만 둔다. 1회용이며 짧게 만료된다. PKCE
+ * challenge를 함께 보관했다가 토큰 교환 때 verifier와 대조한다 — 코드가
+ * 새어도 원래 요청자만 쓸 수 있게 하는 장치다.
+ */
+export const oauthAuthorizationCodes = pgTable("oauth_authorization_codes", {
+  codeHash: text("code_hash").primaryKey(),
+  clientId: text("client_id")
+    .notNull()
+    .references(() => oauthClients.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  redirectUri: text("redirect_uri").notNull(),
+  codeChallenge: text("code_challenge").notNull(),
+  codeChallengeMethod: text("code_challenge_method").notNull(),
+  /** RFC 8707 resource. 토큰의 audience가 된다. */
+  resource: text("resource").notNull(),
+  scope: text("scope").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  consumedAt: timestamp("consumed_at", { withTimezone: true }),
+});
+
+/**
+ * 액세스·리프레시 토큰.
+ *
+ * `resource`가 audience다. 명세는 우리를 위해 발급된 토큰인지 검증하라고
+ * MUST로 요구한다. 이걸 빼면 다른 서비스용 토큰을 들고 와도 통과한다.
+ */
+export const oauthTokens = pgTable(
+  "oauth_tokens",
+  {
+    id: text("id").primaryKey(),
+    tokenHash: text("token_hash").notNull(),
+    /** access | refresh */
+    type: text("type").notNull(),
+    clientId: text("client_id")
+      .notNull()
+      .references(() => oauthClients.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    resource: text("resource").notNull(),
+    scope: text("scope").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("oauth_tokens_hash_idx").on(table.tokenHash),
+    index("oauth_tokens_user_idx").on(table.userId, table.type),
+  ],
+);
