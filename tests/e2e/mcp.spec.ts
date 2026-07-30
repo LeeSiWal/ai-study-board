@@ -32,7 +32,11 @@ test("MCP 접속 토큰을 발급하고 폐기한다", async ({ page }) => {
   // Claude Desktop은 설정 모양이 다르다. 브리지를 자식 프로세스로 띄운다.
   await issued.getByRole("button", { name: "Claude Desktop" }).click();
   await expect(issued).toContainText("AI_STUDY_MCP_TOKEN");
-  await expect(issued).toContainText("mcp-bridge");
+  await expect(issued).toContainText("ai-study-bridge.mjs");
+  // 다른 기기에서 붙는 경우가 보통이라 내려받기 링크를 함께 준다.
+  await expect(
+    issued.getByRole("link", { name: /ai-study-bridge\.mjs 내려받기/ }),
+  ).toHaveAttribute("href", "/api/mcp/bridge");
 
   await issued.getByRole("button", { name: "복사했습니다" }).click();
   await expect(issued).toBeHidden();
