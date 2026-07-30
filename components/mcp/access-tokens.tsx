@@ -271,8 +271,9 @@ function IssuedToken({
       {
         mcpServers: {
           "ai-study-board": {
-            command: "npx",
-            args: ["-y", "tsx", `${issued.bridgePath}`],
+            command: "node",
+            // 아래 경로는 내려받은 파일을 둔 위치로 바꾼다.
+            args: ["/절대/경로/ai-study-bridge.mjs"],
             env: {
               AI_STUDY_MCP_URL: `${origin}/api/mcp`,
               AI_STUDY_MCP_TOKEN: issued.token,
@@ -366,10 +367,24 @@ function IssuedToken({
           {client === "desktop" ? (
             <>
               Claude Desktop은 원격 서버에 OAuth를 요구해서 Bearer 헤더를 넣을
-              자리가 없습니다. 로컬 브리지가 그 사이를 메웁니다.
+              자리가 없습니다. 브리지 파일이 그 사이를 메웁니다.
               <br />
-              설정 파일 위치: macOS{" "}
+              <strong>1.</strong>{" "}
+              <a href="/api/mcp/bridge" download className="text-primary underline">
+                ai-study-bridge.mjs 내려받기
+              </a>{" "}
+              — Node 18 이상이면 설치 없이 돕니다.
+              <br />
+              <strong>2.</strong> 위 설정의 <code>args</code> 경로를 저장한 위치로
+              바꿉니다.
+              <br />
+              <strong>3.</strong> 설정 파일에 붙여넣고 Claude Desktop을
+              재시작합니다.
+              <br />
+              macOS{" "}
               <code>~/Library/Application Support/Claude/claude_desktop_config.json</code>
+              <br />
+              Windows <code>%APPDATA%\Claude\claude_desktop_config.json</code>
             </>
           ) : (
             <>
